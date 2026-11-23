@@ -1,0 +1,10 @@
+# Course materials & teacher files (do not publish to public repo)
+course_files_export/
+README.jpg
+
+# Python / OS artifacts
+__pycache__/
+*.py[cod]
+.DS_Store
+**/.DS_Store
+*.log

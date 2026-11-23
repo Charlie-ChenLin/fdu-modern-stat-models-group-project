@@ -1,0 +1,461 @@
+{
+  "dataset": {
+    "n_total_days": 1507,
+    "n_assets": 15,
+    "assets": [
+      "XLK",
+      "XLF",
+      "XLV",
+      "XLY",
+      "XLP",
+      "XLE",
+      "XLI",
+      "XLB",
+      "XLU",
+      "XLRE",
+      "XLC",
+      "TLT",
+      "IEF",
+      "HYG",
+      "GLD"
+    ],
+    "date_start": "2020-01-03",
+    "date_end": "2025-12-31",
+    "train_start": "2020-01-03",
+    "train_end": "2023-12-29",
+    "n_train": 1005,
+    "test_start": "2024-01-02",
+    "test_end": "2025-12-31",
+    "n_test": 502
+  },
+  "ebic_selected_model": {
+    "alpha": 0.04146352213347599,
+    "n_edges": 64,
+    "max_possible_edges": 105,
+    "sparsity": 0.3904761904761904,
+    "bic": -1418.1903199861677,
+    "ebic": -1071.5598942450847,
+    "cv_5fold_nll": 14.154460205119088,
+    "alg1_primal_err": 2.220446049250313e-16,
+    "alg1_zero_err": 0.0,
+    "min_eigenvalue_theta_refit": 0.11361876751984734
+  },
+  "path_edge_range": {
+    "min_alpha": 0.03,
+    "max_edges": 68,
+    "max_alpha": 0.85,
+    "min_edges": 6
+  },
+  "test_nll_comparison": {
+    "Sample_MLE_test_NLL": 11.562197020762602,
+    "LedoitWolf_test_NLL": 11.64565921669174,
+    "GLasso_EBIC_test_NLL": 11.860228977711795,
+    "GGM_Alg1_Refit_test_NLL": 11.603304184609328
+  },
+  "top_positive_edges": [
+    {
+      "u": "TLT",
+      "u_cn": "长端美债",
+      "v": "IEF",
+      "v_cn": "中端美债",
+      "pcorr_refit": 0.8661925602240583,
+      "pcorr_glasso": 0.8323612367519259,
+      "pearson_corr": 0.9046876270170618,
+      "abs_pcorr": 0.8661925602240583
+    },
+    {
+      "u": "XLK",
+      "u_cn": "科技",
+      "v": "XLC",
+      "v_cn": "通信",
+      "pcorr_refit": 0.47160482969971224,
+      "pcorr_glasso": 0.4392573503211901,
+      "pearson_corr": 0.8681955548697595,
+      "abs_pcorr": 0.47160482969971224
+    },
+    {
+      "u": "XLU",
+      "u_cn": "公用事业",
+      "v": "XLRE",
+      "v_cn": "房地产",
+      "pcorr_refit": 0.45356660682385785,
+      "pcorr_glasso": 0.37783721094091677,
+      "pearson_corr": 0.7963075463665021,
+      "abs_pcorr": 0.45356660682385785
+    },
+    {
+      "u": "XLI",
+      "u_cn": "工业",
+      "v": "XLB",
+      "v_cn": "原材料",
+      "pcorr_refit": 0.41093514572110085,
+      "pcorr_glasso": 0.3805279488020123,
+      "pearson_corr": 0.9127158371217019,
+      "abs_pcorr": 0.41093514572110085
+    },
+    {
+      "u": "XLP",
+      "u_cn": "必选消费",
+      "v": "XLU",
+      "v_cn": "公用事业",
+      "pcorr_refit": 0.4074242470347505,
+      "pcorr_glasso": 0.3676449902847604,
+      "pearson_corr": 0.7877043980075519,
+      "abs_pcorr": 0.4074242470347505
+    },
+    {
+      "u": "XLF",
+      "u_cn": "金融",
+      "v": "XLI",
+      "v_cn": "工业",
+      "pcorr_refit": 0.40227383278188045,
+      "pcorr_glasso": 0.38419220150345734,
+      "pearson_corr": 0.9132119556308139,
+      "abs_pcorr": 0.40227383278188045
+    },
+    {
+      "u": "XLK",
+      "u_cn": "科技",
+      "v": "XLY",
+      "v_cn": "可选消费",
+      "pcorr_refit": 0.382559205128522,
+      "pcorr_glasso": 0.34676261020321947,
+      "pearson_corr": 0.865888747273004,
+      "abs_pcorr": 0.382559205128522
+    },
+    {
+      "u": "XLV",
+      "u_cn": "医疗",
+      "v": "XLP",
+      "v_cn": "必选消费",
+      "pcorr_refit": 0.3352503632603781,
+      "pcorr_glasso": 0.3369347852086129,
+      "pearson_corr": 0.7992359733199568,
+      "abs_pcorr": 0.3352503632603781
+    }
+  ],
+  "top_negative_edges": [
+    {
+      "u": "XLF",
+      "u_cn": "金融",
+      "v": "GLD",
+      "v_cn": "黄金",
+      "pcorr_refit": -0.25061897540017636,
+      "pcorr_glasso": -0.06528139135736148,
+      "pearson_corr": 0.03010984332326112,
+      "abs_pcorr": 0.25061897540017636
+    },
+    {
+      "u": "XLY",
+      "u_cn": "可选消费",
+      "v": "XLU",
+      "v_cn": "公用事业",
+      "pcorr_refit": -0.1764245185314438,
+      "pcorr_glasso": -0.0011075014701355077,
+      "pearson_corr": 0.5412940539798963,
+      "abs_pcorr": 0.1764245185314438
+    },
+    {
+      "u": "XLP",
+      "u_cn": "必选消费",
+      "v": "XLE",
+      "v_cn": "能源",
+      "pcorr_refit": -0.1341636791374611,
+      "pcorr_glasso": -0.002220191965906157,
+      "pearson_corr": 0.4550171869628744,
+      "abs_pcorr": 0.1341636791374611
+    },
+    {
+      "u": "XLK",
+      "u_cn": "科技",
+      "v": "XLE",
+      "v_cn": "能源",
+      "pcorr_refit": -0.11634996433025376,
+      "pcorr_glasso": -0.015287436547857858,
+      "pearson_corr": 0.45630313905250103,
+      "abs_pcorr": 0.11634996433025376
+    },
+    {
+      "u": "XLF",
+      "u_cn": "金融",
+      "v": "IEF",
+      "v_cn": "中端美债",
+      "pcorr_refit": -0.07388530020766637,
+      "pcorr_glasso": -0.05920154790768666,
+      "pearson_corr": -0.21906356579638117,
+      "abs_pcorr": 0.07388530020766637
+    }
+  ],
+  "node_centrality_top5": [
+    {
+      "asset": "XLF",
+      "cn": "金融",
+      "category": "股票-周期",
+      "degree": 12,
+      "strength": 1.5299762721090897,
+      "betweenness": 0.15384615384615385
+    },
+    {
+      "asset": "XLI",
+      "cn": "工业",
+      "category": "股票-周期",
+      "degree": 9,
+      "strength": 1.396970546313925,
+      "betweenness": 0.15384615384615385
+    },
+    {
+      "asset": "XLK",
+      "cn": "科技",
+      "category": "股票-成长",
+      "degree": 8,
+      "strength": 1.3418061777182557,
+      "betweenness": 0.05494505494505495
+    },
+    {
+      "asset": "IEF",
+      "cn": "中端美债",
+      "category": "利率债",
+      "degree": 5,
+      "strength": 1.317579357433662,
+      "betweenness": 0.14285714285714288
+    },
+    {
+      "asset": "XLU",
+      "cn": "公用事业",
+      "category": "股票-防御",
+      "degree": 6,
+      "strength": 1.3138574057560226,
+      "betweenness": 0.17582417582417584
+    }
+  ],
+  "node_centrality_all": [
+    {
+      "asset": "XLF",
+      "cn": "金融",
+      "category": "股票-周期",
+      "degree": 12,
+      "strength": 1.5299762721090897,
+      "betweenness": 0.15384615384615385
+    },
+    {
+      "asset": "XLI",
+      "cn": "工业",
+      "category": "股票-周期",
+      "degree": 9,
+      "strength": 1.396970546313925,
+      "betweenness": 0.15384615384615385
+    },
+    {
+      "asset": "XLK",
+      "cn": "科技",
+      "category": "股票-成长",
+      "degree": 8,
+      "strength": 1.3418061777182557,
+      "betweenness": 0.05494505494505495
+    },
+    {
+      "asset": "IEF",
+      "cn": "中端美债",
+      "category": "利率债",
+      "degree": 5,
+      "strength": 1.317579357433662,
+      "betweenness": 0.14285714285714288
+    },
+    {
+      "asset": "XLU",
+      "cn": "公用事业",
+      "category": "股票-防御",
+      "degree": 6,
+      "strength": 1.3138574057560226,
+      "betweenness": 0.17582417582417584
+    },
+    {
+      "asset": "XLY",
+      "cn": "可选消费",
+      "category": "股票-周期",
+      "degree": 8,
+      "strength": 1.2569519196247454,
+      "betweenness": 0.17582417582417584
+    },
+    {
+      "asset": "XLB",
+      "cn": "原材料",
+      "category": "股票-资源",
+      "degree": 12,
+      "strength": 1.2164156518580873,
+      "betweenness": 0.0
+    },
+    {
+      "asset": "XLP",
+      "cn": "必选消费",
+      "category": "股票-防御",
+      "degree": 10,
+      "strength": 1.164778502528086,
+      "betweenness": 0.16483516483516486
+    },
+    {
+      "asset": "XLRE",
+      "cn": "房地产",
+      "category": "股票-利率敏感",
+      "degree": 9,
+      "strength": 1.0909935188954998,
+      "betweenness": 0.09890109890109891
+    },
+    {
+      "asset": "HYG",
+      "cn": "高收益债",
+      "category": "信用债",
+      "degree": 11,
+      "strength": 1.0071421764341126,
+      "betweenness": 0.16483516483516486
+    },
+    {
+      "asset": "TLT",
+      "cn": "长端美债",
+      "category": "利率债",
+      "degree": 7,
+      "strength": 0.9760982059786979,
+      "betweenness": 0.0
+    },
+    {
+      "asset": "XLE",
+      "cn": "能源",
+      "category": "股票-资源",
+      "degree": 8,
+      "strength": 0.9706889824404621,
+      "betweenness": 0.02197802197802198
+    },
+    {
+      "asset": "XLV",
+      "cn": "医疗",
+      "category": "股票-防御",
+      "degree": 10,
+      "strength": 0.9129551259157509,
+      "betweenness": 0.02197802197802198
+    },
+    {
+      "asset": "GLD",
+      "cn": "黄金",
+      "category": "大宗商品",
+      "degree": 6,
+      "strength": 0.8867410669749641,
+      "betweenness": 0.08791208791208792
+    },
+    {
+      "asset": "XLC",
+      "cn": "通信",
+      "category": "股票-成长",
+      "degree": 7,
+      "strength": 0.8406417372913484,
+      "betweenness": 0.0
+    }
+  ],
+  "regime_comparison": {
+    "regime1_dates": "2020-01-03 ~ 2022-12-30 (n=755)",
+    "regime1_alpha": 0.03,
+    "regime1_edges": 65,
+    "regime2_dates": "2023-01-03 ~ 2025-12-31 (n=752)",
+    "regime2_alpha": 0.07920563177624913,
+    "regime2_edges": 56,
+    "edge_jaccard_similarity": 0.6133333333333333,
+    "n_shared_edges": 46
+  },
+  "static_gmvp_oos_metrics": {
+    "等权组合 (1/N)": {
+      "ann_ret_pct": 12.839129740652567,
+      "ann_vol_pct": 10.516110544045564,
+      "sharpe_rf0": 1.22090098681231,
+      "max_dd_pct": -11.375289864644722,
+      "total_ret_pct": 29.144741468853354,
+      "avg_l1_leverage": 0.9999999999999998
+    },
+    "样本协方差 MLE": {
+      "ann_ret_pct": 6.438248986224787,
+      "ann_vol_pct": 3.776852432179498,
+      "sharpe_rf0": 1.7046599256485868,
+      "max_dd_pct": -2.6375412498123363,
+      "total_ret_pct": 13.68417324461424,
+      "avg_l1_leverage": 2.1592571716566167
+    },
+    "Graphical Lasso": {
+      "ann_ret_pct": 7.204894954605305,
+      "ann_vol_pct": 3.857659552239127,
+      "sharpe_rf0": 1.8676855375750616,
+      "max_dd_pct": -2.838266935628264,
+      "total_ret_pct": 15.43369178671603,
+      "avg_l1_leverage": 1.9528079180445306
+    },
+    "GGM 两步精估 (Alg1)": {
+      "ann_ret_pct": 7.16383354107305,
+      "ann_vol_pct": 3.8902499866806544,
+      "sharpe_rf0": 1.8414841117152918,
+      "max_dd_pct": -2.660421663686652,
+      "total_ret_pct": 15.339309162151672,
+      "avg_l1_leverage": 2.192361616673235
+    },
+    "Ledoit-Wolf 收缩": {
+      "ann_ret_pct": 7.757581207747599,
+      "ann_vol_pct": 4.0824108638470635,
+      "sharpe_rf0": 1.9002450920477014,
+      "max_dd_pct": -2.924891084437431,
+      "total_ret_pct": 16.711622708670305,
+      "avg_l1_leverage": 1.909136903587734
+    }
+  },
+  "rolling_gmvp_oos_metrics": {
+    "等权组合 (1/N)": {
+      "ann_ret_pct": 12.839129740652567,
+      "ann_vol_pct": 10.516110544045564,
+      "sharpe_rf0": 1.22090098681231,
+      "max_dd_pct": -11.375289864644722,
+      "total_ret_pct": 29.144741468853354,
+      "avg_l1_leverage": 0.9999999999999998
+    },
+    "样本协方差 MLE": {
+      "ann_ret_pct": 7.697851935895892,
+      "ann_vol_pct": 3.106877551534974,
+      "sharpe_rf0": 2.477681147135238,
+      "max_dd_pct": -1.912481622390716,
+      "total_ret_pct": 16.572836549157756,
+      "avg_l1_leverage": 2.190420274327929
+    },
+    "Graphical Lasso": {
+      "ann_ret_pct": 8.531550238421723,
+      "ann_vol_pct": 3.1145136973814926,
+      "sharpe_rf0": 2.739288077491702,
+      "max_dd_pct": -1.3585135023114092,
+      "total_ret_pct": 18.525020718949836,
+      "avg_l1_leverage": 1.9227977456034036
+    },
+    "GGM 两步精估 (Alg1)": {
+      "ann_ret_pct": 8.526424700519435,
+      "ann_vol_pct": 3.028715965672145,
+      "sharpe_rf0": 2.8151945567557424,
+      "max_dd_pct": -1.3040011151024933,
+      "total_ret_pct": 18.512919461673995,
+      "avg_l1_leverage": 2.1137172096047503
+    },
+    "Ledoit-Wolf 收缩": {
+      "ann_ret_pct": 8.965187753230234,
+      "ann_vol_pct": 3.6581519964042095,
+      "sharpe_rf0": 2.450742276986465,
+      "max_dd_pct": -2.1038062891493126,
+      "total_ret_pct": 19.553314487302398,
+      "avg_l1_leverage": 1.7674608380986605
+    }
+  },
+  "bootstrap_vol_tests_rolling": {
+    "MLE_minus_GGM_Refit": {
+      "vol_diff_pct": 0.07816158586283001,
+      "ci95_low_pct": -0.021062432157787112,
+      "ci95_high_pct": 0.18336917139914305,
+      "p_value": 0.122
+    },
+    "EqualWeight_minus_GGM_Refit": {
+      "vol_diff_pct": 7.48739457837342,
+      "ci95_low_pct": 5.186277353519131,
+      "ci95_high_pct": 10.504186762144718,
+      "p_value": 0.0
+    }
+  }
+}
