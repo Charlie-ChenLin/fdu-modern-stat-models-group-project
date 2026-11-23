@@ -90,9 +90,6 @@
 
 ## 五、给组员的快速协作说明 / Quick Start for Teammates
 
-- **免克隆直接在线看 HTML 交互式幻灯片（GitHub Pages）**：
-  - [在线打开版本一 HTML 演示稿（GGM & Graphical Lasso，15 页）](https://charlie-chenlin.github.io/fdu-modern-stat-models-group-project/version1_taught_ggm/presentation/%E7%89%88%E6%9C%AC%E4%B8%80_%E9%AB%98%E6%96%AF%E5%9B%BE%E6%A8%A1%E5%9E%8B%E4%B8%8E%E8%B7%A8%E8%B5%84%E4%BA%A7%E9%A3%8E%E9%99%A9%E4%BC%A0%E6%9F%93%E7%BD%91%E7%BB%9C.html)
-  - [在线打开版本二 HTML 演示稿（双重机器学习 DML，15 页）](https://charlie-chenlin.github.io/fdu-modern-stat-models-group-project/version2_untaught_dml/presentation/%E7%89%88%E6%9C%AC%E4%BA%8C_%E5%8F%8C%E9%87%8D%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E4%B8%8E%E5%85%BB%E8%80%81%E9%87%91%E5%9B%A0%E6%9E%9C%E8%AF%84%E4%BC%B0.html)
 - **在线直接看每页高清截图**：如果暂时不想克隆到本地，可以直接点开上面的 `slides_preview/` 文件夹，在 GitHub 网页端直接浏览全部 15 页 PPT 的 2K 预览图。
 - **克隆到本地编辑与重导出 PPTX**：
   ```bash
