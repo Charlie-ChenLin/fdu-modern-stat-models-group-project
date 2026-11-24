@@ -547,12 +547,21 @@ def main() -> None:
     late = emp["dml_iivm_late_p401"]
     ps = emp["propensity_diagnostics"]
     gates = emp["income_gate"]
+    ts_norm = d["simulation"]["tstat_normality"]
+    scaling_dml = [r for r in d["simulation"]["sample_size_scaling"] if "完整 DML" in r["method"]]
+    love = {r["covariate"]: r for r in emp["love_plot_balance"]}
+    fs_diag = {r["learner"]: r for r in emp["first_stage_diagnostics"]}
+    stab = emp["kfold_trimming_stability"]
+    ovb = emp["ovb_sensitivity"]
+    ovb_b = {r["covariate"]: r for r in ovb["benchmarks"]}
+    gate_2d = {(r["inc_q"], r["age_g"]): r for r in emp["gate_2d"]}
+    dr_curve = emp["dr_cate_curve"]
 
     notes_list: List[str] = [
         # 1
-        "各位老师、同学好！本次汇报的主题是《双重机器学习（DML）与高维因果推断：理论原理、模拟验证与 401(k) 实证研究》。针对高维非线性混杂下传统参数方法易误设、直接机器学习又导致置信区间失效的问题，本研究系统剖析 Chernozhukov 等 (2018) 提出的双重机器学习框架，依次通过 200 次 Monte Carlo 模拟验证与 9,915 户 1991 SIPP 401(k) 养老金实证评估其性能与边界。",
+        "各位老师、同学好！本次汇报的主题是《双重机器学习（DML）与高维因果推断：理论原理、模拟验证与 401(k) 实证研究》。针对高维非线性混杂下传统参数方法易误设、直接机器学习又导致置信区间失效的问题，本研究系统剖析 Chernozhukov 等 (2018) 提出的双重机器学习框架，依次通过跨样本量的 Monte Carlo 模拟与 9,915 户 1991 SIPP 401(k) 养老金实证全面评估其性能与边界。",
         # 2
-        "首先介绍模型提出背景与文献演进脉络。从潜在结果框架出发，因果推断经历了 Robinson (1988) 部分线性半参数回归与 Rosenbaum & Rubin (1983) 倾向得分匹配，再发展到 Robins 等 (1994) 的双稳健 AIPW 估计与 Belloni 等 (2014) 高维稀疏控制，最终在 Chernozhukov 等 (2018) 形成结合非参数机器学习、Neyman 正交化与交叉拟合的完整 DML 体系，解决了高维非线性控制与有效统计推断之间的矛盾。",
+        "首先介绍模型提出背景与文献演进脉络。从潜在结果框架出发，因果推断经历了 Robinson (1988) 部分线性半参数回归与 Rosenbaum & Rubin (1983) 倾向得分匹配，再发展到 Robins 等 (1994) 的双稳健 AIPW 估计、Belloni 等 (2014) 高维稀疏控制以及 Kennedy (2023) 的双稳健条件效应学习，最终在 Chernozhukov 等 (2018, 2022) 形成兼顾非参数估计、渐近推断与遗漏变量敏感性检验的完整 DML 体系。",
         # 3
         "接着从部分线性回归模型（Robinson, 1988）出发，剖析普通机器学习直接代入因果估计的两类核心偏误：第一，正则化偏误（Regularization Bias），惩罚项导致扰动函数收敛速度仅为 n^(-1/4) 量级，一阶误差乘以 √n 后趋于发散；第二，过拟合偏误（Overfitting Bias），复杂机器学习模型若在同一全样本上拟合与预测残差，会因样本内拟合噪声产生虚假相关性，同样破坏估计量的一阶渐近无偏性。",
         # 4
@@ -560,21 +569,21 @@ def main() -> None:
         # 5
         "在此基础上，DML 进一步引入第二项核心机制——K-折交叉拟合（Cross-Fitting）。通过将样本随机均分为 5 折、每次仅使用折外 K−1 折训练所得的扰动模型来计算当前验证折的残差，彻底阻断样本内过拟合引发的噪声相关，并保留全样本统计效率；实证中依据 Chernozhukov 等 (2018) 定义 3.3 重复 5 次分层切分取中位数并计入切分间方差。由此构建起同质斜率 PLR、异质双稳健 IRM 以及工具变量 IIVM 的统一因果推断框架。",
         # 6
-        f"针对有限样本下的去偏与推断性能，本研究设计了 B={cfg['B']} 次重复、n={cfg['n']}、p={cfg['p']} 维（含二阶平方及交互项，真值 θ₀={cfg['theta0']:.1f}）的 Monte Carlo 模拟实验，对比四类估计量的抽样分布。结果表明，Naive OLS 因线性误设出现正向偏误（均值 2.254），Direct ML 因缺乏正交化产生严重收缩偏误（均值 1.134），无交叉拟合方法受样本内过拟合影响偏误为 −0.360，唯有完整 DML 稳定居中于真值附近（均值 1.997，偏误 −0.003）。",
+        f"针对有限样本下的去偏与渐近正态性，本研究设计了 B={cfg['B']} 次重复、n={cfg['n']}、p={cfg['p']} 维（含二阶平方及交互项，真值 θ₀={cfg['theta0']:.1f}）的 Monte Carlo 模拟。图 1(a) 显示 Naive OLS（2.254）、Direct ML（1.134）与无交叉拟合（1.640）均严重偏离真值；图 1(b) 进一步依据定理 3.1 检验标准化 t 统计量分布，仅完整 DML 完美贴合 N(0,1)（均值 {ts_norm['t_mean']:+.3f}、SD {ts_norm['t_sd']:.3f}，KS 检验 p={ts_norm['ks_p']:.3f}）。",
         # 7
-        "进一步量化评估四类估计量的点估计精度与置信区间有效性。比较均方根误差（RMSE）及 95% 置信区间经验覆盖率可以发现，前三种方法因系统性偏误远大于标准误，其 95% 置信区间覆盖率全部降至 0.0%；而完整 DML 通过 Neyman 正交化与 5-折交叉拟合协同作用，将 RMSE 从 0.260–0.871 显著降低至 0.032，经验标准差（0.032）与理论三明治标准误（0.033）高度吻合，95% 区间覆盖率达到 96.5%。",
+        f"进一步在 n=250, 500, 1000, 2000 四个样本量尺度下验证收敛速率与覆盖率（图 2）。完整 DML 的 RMSE 沿理论速率线 O(n^(-1/2)) 从 {scaling_dml[0]['rmse']:.3f} 稳定降至 {scaling_dml[-1]['rmse']:.3f}，95% 区间覆盖率始终保持在 90.0%–96.5%；而前三种方法因非零偏误主导，样本量越大置信区间越偏离真值，在 n=1000 时覆盖率全部跌落至 0.0%。",
         # 8
-        f"在验证模型有限样本性质之后，本研究转向 1991 年美国人口普查局 SIPP 家庭金融调查数据（N={emp['n']:,}，零缺失值），检验雇主 401(k) 养老金资格对家庭净金融资产的因果效应。数据探索与协变量平衡性诊断显示：有资格家庭（3,682 户）与无资格家庭（6,233 户）净金融资产均值差达 +$19,559，但净资产高度右偏（中位数仅 $1,499），且 9 个控制变量中有 7 个的标准化均值差超过 0.1 平衡警戒线（其中年收入 SMD 高达 +0.637），存在显著的高收入选择偏差，亟需 DML 剥离混杂。",
+        f"在验证模拟性质后，转向 1991 SIPP 401(k) 家庭数据（N={emp['n']:,}，零缺失）。图 3(a) 揭示了强烈的非线性选择机制：从年收入 D1（$9k）到 D10（$86k），雇主资格覆盖率由 9.0% 陡增至 60.9% 且净金融资产呈指数攀升，导致原始均值差虚高至 +$19,559；图 3(b) Covariate Balance Love Plot 则证实，经 DML 交叉拟合倾向得分加权后，9 项协变量 |SMD| 全部由最高 0.637 收敛至 0.058 以内，成功达成平衡。",
         # 9
-        "针对 401(k) 资格对家庭净金融资产的平均处理效应，本研究在同一 9 维协变量下对比传统计量基准与四类机器学习器（Lasso、Ridge、Random Forest 与 HistGradientBoosting）的 DML-PLR 及 DML-IRM 估计结果。实证发现：线性 OLS 低估效应至 +$5,896，1:1 PSM 的 ATT 标准误达 $3,026；而 DML-IRM 的 ATE 估计在四类不同函数族学习器下紧凑收敛于 +$7,822 至 +$8,693，且标准误显著降至 $1,142–$1,250，HGB 下的 ATT 达到 +$11,436，证实了 401(k) 对净储蓄的正向因果效应。",
+        "在主效应对比与模型诊断中（图 4），线性 OLS 因误设低估效应至 +$5,896，1:1 PSM 的 ATT 标准误达 $3,026；而 DML-IRM 在四类异质算法下紧凑收敛于 +$7,822 至 +$8,693，标准误降至 $1,142–$1,250。图 4(b) 与 4(c) 进一步证实第一阶段倾向得分 ROC-AUC 稳定在 0.734–0.740、结果折外 R² 为 0.232–0.283，且在 K=2,3,5,10 及多种倾向得分截断设定下估计值稳定在 +$8,434 至 +$8,693。",
         # 10
-        "为检验实证结论的识别假设与稳健性，本研究开展了三项检验：第一，HGB 交叉拟合倾向得分分布的 5%–95% 分位为 [0.054, 0.707]，处置组与对照组重叠充分，满足正性假设；第二，针对潜在内生特征个人退休账户 pira，剔除后以 8 个协变量重跑 HGB，得到 DML-IRM ATE 为 +$8,923（SE $1,312），与全变量基准 +$8,693 高度一致；第三，以雇主资格 e401 作为实际参与 p401（合格参与率 70.45%）的工具变量，采用 DML-IIVM 估得依从者的局部平均处理效应 LATE 为 +$12,107（SE $1,800）。",
+        f"随后从正性支撑、非参数 OVB 敏感性与工具变量三维度展开核验（图 5）。首先，HGB 倾向得分 5%–95% 核心支撑为 [{ps['hgb_ps_p05']:.3f}, {ps['hgb_ps_p95']:.3f}]；其次，依据 Chernozhukov 等 (2022) OVB 边界，推翻 +$8,693 结论需未观测因子同时解释 5.1% 的结果与权重残差方差（RV=5.1%），即便引入等同 db 或 pira 强度的混淆因子，下界仍高达 +$5,265 与 +$4,624（剔除 pira 实测 +$8,923）；最后以 e401 为工具变量测得依从者 LATE 为 +$12,107。",
         # 11
-        "为进一步考察 401(k) 净储蓄效应在不同收入群体间的异质性特征，本研究基于 HGB DML-IRM 构造的交叉拟合正交伪结果 φ̂ᵢ，按家庭年收入四分位计算群体平均处理效应（GATE）。结果显示出显著的双极分化特征：从绝对美元增量看，高收入组 Q4 达到 +$20,588（SE $4,283）；而从相对于组内中位年收入的财富撬动比例看，低收入组 Q1 虽绝对增量为 +$4,945，却相当于其中位年收入的 36.6%（p<0.001），而中低收入组 Q2 的置信区间跨过零点。",
+        f"最后深入刻画异质性因果效应（图 6）。四分位 GATE 表显示高收入 Q4 绝对增量最大（+${gates[3]['gate']:,.0f}），低收入 Q1（+${gates[0]['gate']:,.0f}）占中位年收 36.6%。图 6(a) 二维热力图进一步揭示年龄×收入协同分化：Q4×50+ 岁单户净增高达 +${gate_2d[('Q4 (高收入)', '50+ 岁')]['gate']:,.0f}*（n=600），而 Q1 内部中老年家庭亦获 +$7,364 至 +$9,054 显著提升；图 6(b) Kennedy (2023) DR-Learner 连续曲线显示效应从 D4（+$2,004）单调攀升至 D10（+$27,989），而 D1 相对收入撬动率高达 {dr_curve[0]['dr_rel_inc_pct']:.1f}%。",
         # 12
-        "综合模拟与实证结果，可以从模型性能与实证应用两个层面总结结论。就模型性能而言：DML 有效消除了正则化偏误与过拟合偏误，将模拟覆盖率恢复至 96.5% 并将 RMSE 降至 0.032；在 401(k) 实证中实现跨四类异质学习器的高度稳健收敛，标准误明显低于传统 OLS 与 PSM，并可统一拓展至工具变量 IIVM 与 GATE 分析。就实证与决策启示而言：401(k) 确有显著净新增储蓄效应；金融机构可聚焦 Q4 群体扩大长期管理资产规模，而普惠政策对 Q1 群体具有显著储蓄杠杆作用。",
+        f"综合模拟与实证，可以从模型性能与决策启示两方面凝练结论。性能方面：DML 不仅验证了 t 统计量正态性（KS p={ts_norm['ks_p']:.3f}）与 O(n^(-1/2)) 收敛速率、将模拟覆盖率恢复至 96.5%，还在 401(k) 中使全部 9 项协变量 |SMD| 降至 0.058 以下、跨学习器与超参高度稳健，并以 OVB RV=5.1% 与 DR-Learner 拓展展现强大严密性。实践方面：证实税收递延养老金净储蓄创造效应，建议机构重点服务中老年高收入群体（Q4×50+ 达 +$31,444），普惠政策则应聚焦克服年轻低收入人群流动性约束。",
         # 13
-        "同时需要明确模型的统计适用边界与后续延伸方向。在假设边界上：DML 严格依赖条件可忽略性假设（Unconfoundedness），无法直接消除未观测的个人主观储蓄偏好；在极端倾向得分趋近 0 或 1 的不平衡样本下逆概率权重易放大方差；扰动学习器亦需满足 o(n^(-1/4)) 收敛速率条件，且 1991 年截面数据外推需结合当代制度背景审慎评估。未来可进一步融合面板双重差分（DID-DML）、Causal Forest 个体化条件效应树及遗漏变量混淆强度敏感性边界。",
+        "同时需清晰界定模型假设边界与前沿延伸方向。边界上：DML 仍受条件可忽略性约束，根据 OVB 基准，若出现与家庭年收入同等量级（R²≈24.2%）的未观测主观储蓄偏好仍会逆转结论；极端倾向得分下逆概率权重敏感，且需满足扰动学习器 o(n^(-1/4)) 收敛速率。未来可进一步融合面板双重差分（DID-DML）、依托 Causal Forest 构造最优 Policy Tree 靶向投放规则，并延伸至动态多期纵贯 DML 评估长期退休财富积累。",
         # 14
         "最后进入每人 1 分钟的模型拓展应用阐述。结合我在量化多因子研究与大模型 Agent 强化学习中的实践，DML 可直接用于剥离非线性市值、波动率与行业暴露混杂以检验新因子的真实增量 Alpha，以及在高维状态空间中对策略改进进行双稳健反事实回报归因。接下来请另外两位组员结合各自实习或研究场景依次介绍模型应用价值。",
         # 15
@@ -772,34 +781,31 @@ def main() -> None:
     # Slide 6: Simulation Analysis I
     s6_body = (
         '<div class="lead-banner">'
-        f'<strong>研究问题与方法说明：</strong>针对“高维非线性混杂下各估计量的偏误机制”，构建 B={cfg["B"]} 次、n={cfg["n"]}、p={cfg["p"]} 维（真值 θ₀={cfg["theta0"]:.1f}）Monte Carlo 模拟，对比四类估计量抽样分布。结果表明<strong>仅完整 DML 居中无偏</strong>，具体如下：'
+        f'<strong>研究问题与方法说明：</strong>针对“高维非线性混杂下的偏误机制与渐近正态性（定理 3.1）”，构建 B={cfg["B"]} 次、n={cfg["n"]}、p={cfg["p"]} 维（真值 θ₀={cfg["theta0"]:.1f}）Monte Carlo 模拟。结果表明<strong>仅完整 DML 居中无偏且通过 N(0,1) 正态检验（KS p={ts_norm["ks_p"]:.3f}）</strong>：'
         '</div>'
         '<div class="row" style="flex:1;">'
-        '<div class="fig-box" style="flex:1.38;">'
-        '<img src="../outputs/figures/fig1_simulation_bias_distribution.png" alt="图1 模拟抽样分布对比"/>'
+        '<div class="fig-box" style="flex:1.42;">'
+        '<img src="../outputs/figures/fig1_simulation_bias_distribution.png" alt="图1 模拟抽样分布与t统计量正态性检验"/>'
         '</div>'
         '<div class="col" style="flex:1;">'
         '<div class="card blue">'
-        '<div class="card-hd" style="font-size:18px;">数据生成过程（DGP）与模型设定</div>'
-        '<ul class="ul compact" style="font-size:16px;">'
+        '<div class="card-hd" style="font-size:17.5px;">数据生成过程（DGP）与模型设定</div>'
+        '<ul class="ul compact" style="font-size:15.5px;">'
         f'<li><span class="hl">规模</span>：X ~ N(0, I₂₀)，前 6 维为有效混杂，后 14 维为无关噪声；真值 θ₀ = {cfg["theta0"]:.1f}。</li>'
-        '<li><span class="hl">非线性项</span>：m₀(X) 与 g₀(X) 均含 X₁²−1、X₂X₃、X₄²−1 等平方及二阶交互。</li>'
-        '<li><span class="hl">DML 学习器</span>：二阶展开（230 维）结合 LassoCV 执行 5-折交叉拟合。</li>'
+        '<li><span class="hl">非线性项</span>：m₀(X) 与 g₀(X) 含平方与二阶交互项；DML 用二阶展开（230 维）+ LassoCV 做 5-折交叉拟合。</li>'
         '</ul>'
         '</div>'
         '<div class="card" style="flex:1;">'
-        '<div class="card-hd" style="font-size:18px;">四类估计量抽样分布诊断</div>'
-        '<ul class="ul compact" style="font-size:16px;">'
-        f'<li><span class="hl">Naive OLS ({sim[0]["mean_est"]:.3f})</span>：线性控制无法逼近二阶交互项，产生正向误设偏误 ({sim[0]["bias"]:+.3f})。</li>'
-        f'<li><span class="hl-amber">Direct ML ({sim[1]["mean_est"]:.3f})</span>：仅对 Y 去趋势而未对 D 正交，正则收缩致严重左偏 ({sim[1]["bias"]:+.3f})。</li>'
-        f'<li><span class="hl-red">无交叉拟合 ({sim[2]["mean_est"]:.3f})</span>：深层森林样本内过拟合噪声，引发 {sim[2]["bias"]:+.3f} 负偏误。</li>'
-        f'<li><span class="hl-teal">完整 DML ({sim[3]["mean_est"]:.3f})</span>：居中分布于 θ₀=2.0（偏误 {sim[3]["bias"]:+.3f}），方差最小。</li>'
+        '<div class="card-hd" style="font-size:17.5px;">抽样分布与 Thm 3.1 t-统计量正态性诊断</div>'
+        '<ul class="ul compact" style="font-size:15.5px;">'
+        f'<li><span class="hl">Naive OLS ({sim[0]["mean_est"]:.3f})</span> / <span class="hl-amber">Direct ML ({sim[1]["mean_est"]:.3f})</span> / <span class="hl-red">无交叉拟合 ({sim[2]["mean_est"]:.3f})</span> 均严重偏离真值且 t 统计量偏离 N(0,1)。</li>'
+        f'<li><span class="hl-teal">完整 DML ({sim[3]["mean_est"]:.3f})</span>：偏误仅 {sim[3]["bias"]:+.3f}；t 统计量均值 {ts_norm["t_mean"]:+.3f}、SD {ts_norm["t_sd"]:.3f}，KS 检验 p = <span class="hl-teal">{ts_norm["ks_p"]:.3f}</span>（不拒绝标准正态）。</li>'
         '</ul>'
         '</div>'
         '</div>'
         '</div>'
     )
-    slides.append(wrap_slide(6, 1, "三、模拟分析（一）：非线性高维混杂 DGP 与抽样分布对比",
+    slides.append(wrap_slide(6, 1, "三、模拟分析（一）：非线性高维混杂 DGP、抽样分布与正态性校验",
                            "", s6_body, notes_list[5]))
 
     # Slide 7: Simulation Analysis II
@@ -817,75 +823,74 @@ def main() -> None:
         )
     s7_body = (
         '<div class="lead-banner">'
-        '<strong>定量评估说明：</strong>为衡量四类估计量的点估计误差与推断有效性，汇总 200 次模拟的 RMSE、经验标准差与 95% 覆盖率。结果表明<strong>完整 DML 将 RMSE 降至 0.032 且覆盖率达 96.5%</strong>，具体如下：'
+        f'<strong>定量与跨样本量评估：</strong>扩展样本量至 n ∈ {{250, 500, 1000, 2000}} 检验 O(n<sup>−1/2</sup>) 收敛速率与区间覆盖率分化。结果表明<strong>完整 DML 将 n=1000 下 RMSE 降至 {sim[3]["rmse"]:.3f} 且覆盖率达 {sim[3]["coverage_95_pct"]:.1f}%</strong>：'
         '</div>'
-        '<div class="row" style="flex:1.15;">'
+        '<div class="row" style="flex:1.18;">'
         '<div class="fig-box" style="flex:1.85;">'
-        '<img src="../outputs/figures/fig2_simulation_coverage_rmse.png" alt="图2 模拟RMSE与95%覆盖率"/>'
+        '<img src="../outputs/figures/fig2_simulation_coverage_rmse.png" alt="图2 跨样本量RMSE收敛速率与95%覆盖率分化"/>'
         '</div>'
         '<div class="col" style="flex:1;">'
         '<div class="card dark" style="flex:1;justify-content:center;">'
-        '<div class="card-hd" style="font-size:18.5px;">有限样本统计推断有效性检验</div>'
-        f'<div style="font-size:34px;font-weight:700;color:#86EFAC;">{sim[3]["coverage_95_pct"]:.1f}% <span style="font-size:17px;color:#CBD5E1;">vs. 0.0%</span></div>'
-        '<ul class="ul compact" style="font-size:16px;">'
-        '<li>前三种方法因系统偏误远大于标准误，200 次试验中 95% 区间<span style="color:#FBBF24;font-weight:700;">覆盖率均为 0.0%</span>。</li>'
-        f'<li>完整 DML 将 RMSE 压低至 <span style="color:#7DD3FC;font-weight:700;">{sim[3]["rmse"]:.3f}</span>，经验 SD（{sim[3]["emp_sd"]:.3f}）与理论 SE（{sim[3]["mean_se"]:.3f}）精准匹配。</li>'
+        '<div class="card-hd" style="font-size:18px;">O(n<sup>−1/2</sup>) 收敛与推断有效性</div>'
+        f'<div style="font-size:32px;font-weight:700;color:#86EFAC;">{sim[3]["coverage_95_pct"]:.1f}% <span style="font-size:16.5px;color:#CBD5E1;">vs. 0.0%</span></div>'
+        '<ul class="ul compact" style="font-size:15.2px;">'
+        f'<li><span style="color:#7DD3FC;font-weight:700;">RMSE 严格贴合理论线</span>：n 由 250 增至 2000 时，完整 DML RMSE 由 {scaling_dml[0]["rmse"]:.3f} 稳定降至 {scaling_dml[-1]["rmse"]:.3f}，覆盖率保持 90%–96.5%。</li>'
+        '<li><span style="color:#FBBF24;font-weight:700;">非正交/不切分随大样本恶化</span>：系统偏误不随 n 消退，n=1000 时前三种方法覆盖率全部塌缩至 0.0%。</li>'
         '</ul>'
         '</div>'
         '</div>'
         '</div>'
-        '<table class="tbl" style="font-size:15px;">'
+        '<table class="tbl" style="font-size:14.6px;">'
         '<thead><tr><th>模拟估计方法 (B=200, n=1000, p=20, θ₀=2.0)</th><th class="num-col">估计均值</th><th class="num-col">偏误 Bias</th><th class="num-col">经验 SD</th><th class="num-col">平均理论 SE</th><th class="num-col">RMSE</th><th class="num-col">95% 区间覆盖率</th></tr></thead>'
         f'<tbody>{"".join(rows7)}</tbody>'
         '</table>'
     )
-    slides.append(wrap_slide(7, 1, "三、模拟分析（二）：点估计精度（RMSE）与置信区间覆盖率检验",
+    slides.append(wrap_slide(7, 1, "三、模拟分析（二）：O(n⁻¹/²) 收敛速率、RMSE 与置信区间覆盖率检验",
                            "", s7_body, notes_list[6]))
 
     # Slide 8: Empirical Background & Data Diagnostics
     s8_body = (
         '<div class="lead-banner">'
-        f'<strong>研究背景与数据诊断：</strong>针对“401(k) 养老金是否创造净新增储蓄”，基于 1991 SIPP 家庭调查数据（N={emp["n"]:,}，零缺失值）检验分布与协变量平衡性。诊断显示<strong>原始差距 +$19,559 伴随严重选择偏差</strong>，具体如下：'
+        f'<strong>研究背景与数据诊断：</strong>基于 1991 SIPP 家庭金融数据（N={emp["n"]:,}，零缺失值），依次检验收入十分位非线性混杂结构与 DML 加权前后协变量平衡性。诊断显示<strong>原始差距 +$19,559 存在严重失衡，而 DML 加权后全项 |SMD| 降至 &lt;0.06</strong>：'
         '</div>'
         '<div class="row" style="flex:1;">'
-        '<div class="fig-box" style="flex:1.35;">'
-        '<img src="../outputs/figures/fig3_401k_eda_confounding.png" alt="图3 401k数据探索与混杂诊断"/>'
+        '<div class="fig-box" style="flex:1.42;">'
+        '<img src="../outputs/figures/fig3_401k_eda_confounding.png" alt="图3 收入十分位非线性特征与Love Plot平衡性检验"/>'
         '</div>'
         '<div class="col" style="flex:1;">'
         '<div class="card blue">'
-        '<div class="card-hd" style="font-size:18px;">实证经济问题与数据结构</div>'
-        '<ul class="ul compact" style="font-size:16px;">'
-        '<li><span class="hl">核心争议</span>：401(k) 究竟带来<span class="hl-teal">净新增储蓄</span>，还是仅诱导高储蓄群体转移原有应税资产（资产挤出效应）？</li>'
-        f'<li><span class="hl">处置与样本</span>：雇主资格 e401 占 37.1%（{emp["treated_e401"]:,} vs {emp["control_e401"]:,}），合格实际参与率 p401 达 {emp["compliers_p401_given_e401"]*100:.2f}%。</li>'
-        '<li><span class="hl">9 维协变量</span>：年收入、年龄、学历、家庭规模、婚姻、双职工、DB 养老金、IRA 与自有住房。</li>'
+        '<div class="card-hd" style="font-size:17.5px;">非线性混杂与资格陡增特征（图 3a）</div>'
+        '<ul class="ul compact" style="font-size:15.4px;">'
+        f'<li><span class="hl">处置与净资产分布</span>：雇主资格 e401 占 37.1%（{emp["treated_e401"]:,} vs {emp["control_e401"]:,}），实际参与率 {emp["compliers_p401_given_e401"]*100:.2f}%；net_tfa 中位数仅 $1,499、原始均值差 <span class="hl-red">+${base["naive_diff"]["est"]:,.0f}</span>。</li>'
+        '<li><span class="hl">双陡增选择偏误</span>：收入由 D1（$9k）升至 D10（$86k）时，401(k) 资格率由 9.0% 陡增至 60.9%，且净金融资产呈指数跃升（~$7k→$83.7k）。</li>'
         '</ul>'
         '</div>'
-        '<div class="card red" style="flex:1;">'
-        '<div class="card-hd" style="font-size:18px;">分布偏态与选择偏差诊断（图 3）</div>'
-        '<ul class="ul compact" style="font-size:16px;">'
-        f'<li><span class="hl">高度右偏</span>：net_tfa 均值 $18,052、中位数仅 $1,499，组间原始均值差达 <span class="hl-red">+${base["naive_diff"]["est"]:,.0f}</span>。</li>'
-        '<li><span class="hl-red">协变量严重失衡</span>：9 项协变量中有 7 项 |SMD| &gt; 0.1，年收入（+0.637）、DB 养老金（+0.521）、自有住房（+0.363）显著偏向处置组，亟需非线性去混杂。</li>'
+        '<div class="card teal" style="flex:1;">'
+        '<div class="card-hd" style="font-size:17.5px;">Covariate Balance Love Plot 去混杂检验（图 3b）</div>'
+        '<ul class="ul compact" style="font-size:15.4px;">'
+        f'<li><span class="hl-red">加权前严重失衡</span>：9 维控制变量中 7 项 |SMD| &gt; 0.1，年收入 inc（{love["inc"]["smd"]:+.3f}）、DB 养老金（{love["db"]["smd"]:+.3f}）与自有住房（{love["hown"]["smd"]:+.3f}）高度偏向处置组。</li>'
+        f'<li><span class="hl-teal">DML 交叉拟合 IPW 加权后全项达标</span>：全部 9 项协变量收敛入 |SMD| &lt; 0.1 绿区（inc 降至 {abs(love["inc"]["ipw_smd"]):.3f}，db 降至 {abs(love["db"]["ipw_smd"]):.3f}）。</li>'
         '</ul>'
         '</div>'
         '</div>'
         '</div>'
     )
-    slides.append(wrap_slide(8, 2, "四、实证研究背景与数据诊断：1991 SIPP 401(k) 养老金计划",
+    slides.append(wrap_slide(8, 2, "四、实证研究背景与数据诊断：非线性选择偏误与 DML 平衡性检验",
                            "", s8_body, notes_list[7]))
 
-    # Slide 9: Empirical Analysis I - Forest Plot & Multi-Learner Comparison
+    # Slide 9: Empirical Analysis I - Forest Plot, First-Stage & K-Fold Stability
     s9_body = (
         '<div class="lead-banner">'
-        '<strong>主效应识别分析：</strong>针对 401(k) 资格对净金融资产的平均处理效应，对比传统基准与四类机器学习器下的 DML-PLR/IRM。结果表明 <strong>DML-IRM 稳健收敛于 +$7,822 至 +$8,693 且标准误最小</strong>，具体如下：'
+        '<strong>主效应识别与超参稳健性：</strong>在同一 9 维协变量下对比传统基准、四类算法 DML-PLR/IRM，并检验第一阶段精度与 K-折稳健性。结果表明 <strong>DML-IRM 稳健收敛于 +$7,822 至 +$8,693 且对折数与截断高度不敏感</strong>：'
         '</div>'
         '<div class="row" style="flex:1;">'
-        '<div class="fig-box" style="flex:1.28;">'
-        '<img src="../outputs/figures/fig4_401k_model_comparison_forest.png" alt="图4 传统方法与DML森林图对比"/>'
+        '<div class="fig-box" style="flex:1.38;">'
+        '<img src="../outputs/figures/fig4_401k_model_comparison_forest.png" alt="图4 传统方法与DML森林图、第一阶段精度与K折稳健性"/>'
         '</div>'
         '<div class="col" style="flex:1;">'
         '<div class="card">'
-        '<div class="card-hd" style="font-size:17.5px;">跨四类学习器 DML 稳健性（5 次切分中位数）</div>'
-        '<table class="tbl" style="font-size:14.2px;">'
+        '<div class="card-hd" style="font-size:17px;">跨四类学习器 DML 稳健性（5 次切分中位数）</div>'
+        '<table class="tbl" style="font-size:13.8px;">'
         '<thead><tr><th>底层机器学习器</th><th class="num-col">PLR 估计 (SE)</th><th class="num-col">IRM ATE (SE)</th></tr></thead>'
         '<tbody>'
         f'<tr><td>Lasso (高维多项式)</td><td class="num-col">+${plr["Lasso (高维多项式)"]["est"]:,.0f} (${plr["Lasso (高维多项式)"]["se"]:,.0f})</td><td class="num-col">+${irm["Lasso + L1-Logit"]["ATE"]["est"]:,.0f} (${irm["Lasso + L1-Logit"]["ATE"]["se"]:,.0f})</td></tr>'
@@ -896,38 +901,38 @@ def main() -> None:
         '</table>'
         '</div>'
         '<div class="card blue" style="flex:1;">'
-        '<div class="card-hd" style="font-size:17.5px;">实证对比核心发现</div>'
-        '<ul class="ul compact" style="font-size:16px;">'
-        f'<li><span class="hl">显著净储蓄效应</span>：扣除高收入混杂后，四类算法 IRM-ATE 均稳定落在 <span class="hl-teal">+$7,822 ~ +$8,693</span>，证实净储蓄增量。</li>'
-        f'<li><span class="hl">估计效率全面占优</span>：IRM 标准误降至 <span class="hl-teal">$1,142–$1,250</span>，低于线性 OLS（$1,524，且误设偏低至 +$5,896）和 PSM ATT（$3,026）。</li>'
-        f'<li><span class="hl">处理组实际获益更高</span>：HGB 下合格群体 <span class="hl">ATT = +${irm["HistGradientBoosting"]["ATT"]["est"]:,.0f}</span>（SE ${irm["HistGradientBoosting"]["ATT"]["se"]:,.0f}）。</li>'
+        '<div class="card-hd" style="font-size:17px;">对比发现、扰动精度（图 4b）与 K-折稳健性（图 4c）</div>'
+        '<ul class="ul compact" style="font-size:15px;">'
+        f'<li><span class="hl">精度占优</span>：IRM 标准误（$1,142–$1,250）明显低于线性 OLS（$1,524，且偏低至 +$5,896）和 PSM ATT（$3,026）；HGB 下 ATT 达 <span class="hl-teal">+${irm["HistGradientBoosting"]["ATT"]["est"]:,.0f}</span>。</li>'
+        '<li><span class="hl">第一阶段折外预测</span>：四类学习器倾向得分 AUC 均达 <span class="hl-teal">0.734–0.740</span>，结果折外 R² 为 0.232–0.283。</li>'
+        f'<li><span class="hl">K-折与截断不敏感</span>：K ∈ {{2,3,5,10}} 下 HGB ATE 仅微幅波动于 +${stab[3]["est"]:,.0f} ~ +${stab[2]["est"]:,.0f}；截断 0.01/0.05/0.10 稳定于 +$8,641 ~ +$8,693。</li>'
         '</ul>'
         '</div>'
         '</div>'
         '</div>'
     )
-    slides.append(wrap_slide(9, 3, "五、实证分析（一）：传统计量基准与多学习器 DML 主效应对比",
+    slides.append(wrap_slide(9, 3, "五、实证分析（一）：主效应对比、第一阶段诊断与 K-折稳健性",
                            "", s9_body, notes_list[8]))
 
-    # Slide 10: Empirical Analysis II - Overlap, Sensitivity & IV LATE
+    # Slide 10: Empirical Analysis II - Overlap, OVB Sensitivity & IV LATE
     s10_body = (
         '<div class="lead-banner">'
-        '<strong>假设核验与稳健性：</strong>为验证识别假设与排除内生干扰，本节依次检验倾向得分重叠度、剔除争议特征 pira 重估及 DML-IIVM 工具变量效应。结果证实<strong>重叠充分、结论稳健且实际参与 LATE 达 +$12,107</strong>，如下：'
+        f'<strong>假设核验、OVB 敏感性与工具变量：</strong>依次检验倾向得分重叠度、Chernozhukov 等 (2022) 非参数 OVB 边界、剔除 pira 重估与 IIVM 工具变量效应。结果证实<strong>重叠充分，稳健阈值 RV={ovb["rv_point_pct"]:.1f}%（CI {ovb["rv_ci95_pct"]:.1f}%），LATE 达 +${late["est"]:,.0f}</strong>：'
         '</div>'
         '<div class="row" style="flex:1;">'
-        '<div class="col" style="flex:1.15;">'
+        '<div class="col" style="flex:1.25;">'
         '<div class="fig-box" style="flex:1;">'
-        '<img src="../outputs/figures/fig5_401k_propensity_overlap.png" alt="图5 倾向得分重叠检验"/>'
+        '<img src="../outputs/figures/fig5_401k_propensity_overlap.png" alt="图5 倾向得分重叠性与OVB非参数敏感性边界"/>'
         '</div>'
-        '<div class="note-strip">'
-        f'<strong>正性假设检验：</strong>HGB 倾向得分 <span class="hat">m</span>(X) 的 5%–95% 分位为 <strong>[{ps["hgb_ps_p05"]:.3f}, {ps["hgb_ps_p95"]:.3f}]</strong>（全样本 [{ps["hgb_ps_min"]:.3f}, {ps["hgb_ps_max"]:.3f}]），两组分布重叠充分。'
+        '<div class="note-strip" style="font-size:14.2px;">'
+        f'<strong>OVB 定量敏感性（图 5b）：</strong>若未观测混杂解释力等同 <span class="hl">1× db</span> 或 <span class="hl">1× pira</span>，ATE 下界仍高达 <strong>+${ovb_b["db"]["theta_lower_1x"]:,.0f}</strong> 与 <strong>+${ovb_b["pira"]["theta_lower_1x"]:,.0f}</strong>；仅当媲美年收入 inc（R²=24.2%）方能逆转。核心支撑 [{ps["hgb_ps_p05"]:.3f}, {ps["hgb_ps_p95"]:.3f}]。'
         '</div>'
         '</div>'
         '<div class="col" style="flex:1;">'
         '<div class="card">'
-        '<div class="card-hd" style="font-size:17.5px;">协变量敏感性检验：剔除个人退休账户 pira</div>'
-        '<p class="p-text compact" style="font-size:15.5px;">为排除 pira 可能反映主观储蓄偏好的干扰，仅以其余 8 项协变量重估 HGB：</p>'
-        '<table class="tbl" style="font-size:14.2px;">'
+        '<div class="card-hd" style="font-size:17px;">特征剥离敏感性：剔除个人退休账户 pira</div>'
+        '<p class="p-text compact" style="font-size:14.5px;">排除主观储蓄偏好关联变量 pira 后以 8 项协变量重估 HGB：</p>'
+        '<table class="tbl" style="font-size:13.8px;">'
         '<thead><tr><th>HGB 模型设定</th><th class="num-col">9 协变量基准</th><th class="num-col">剔除 pira (8 协变量)</th></tr></thead>'
         '<tbody>'
         f'<tr><td>DML-PLR</td><td class="num-col">+${plr["HistGradientBoosting"]["est"]:,.0f}</td><td class="num-col">+${sens["dml_plr_hgb"]["est"]:,.0f} (SE ${sens["dml_plr_hgb"]["se"]:,.0f})</td></tr>'
@@ -937,20 +942,20 @@ def main() -> None:
         '</table>'
         '</div>'
         '<div class="card dark" style="flex:1;">'
-        '<div class="card-hd" style="font-size:17.5px;">工具变量拓展（DML-IIVM）：实际参与效应 LATE</div>'
-        f'<div style="font-size:29px;font-weight:700;color:#FBBF24;">LATE = +${late["est"]:,.0f} <span style="font-size:15.5px;color:#CBD5E1;">(SE ${late["se"]:,.0f})</span></div>'
-        '<ul class="ul compact" style="font-size:15.8px;">'
+        '<div class="card-hd" style="font-size:17px;">工具变量拓展（DML-IIVM）：实际参与效应 LATE</div>'
+        f'<div style="font-size:27px;font-weight:700;color:#FBBF24;">LATE = +${late["est"]:,.0f} <span style="font-size:15px;color:#CBD5E1;">(SE ${late["se"]:,.0f})</span></div>'
+        '<ul class="ul compact" style="font-size:14.8px;">'
         f'<li>合格家庭实际参与 p401 占比为 <span style="color:#7DD3FC;font-weight:700;">{emp["compliers_p401_given_e401"]*100:.2f}%</span>（无资格组 0%，严格单边服从）。</li>'
-        f'<li>以资格 e401 作 p401 工具变量，IIVM 估得依从者净增 +${late["est"]:,.0f}（95% CI [${late["ci95_low"]:,.0f}, ${late["ci95_high"]:,.0f}]），与 ATE÷0.7045 一致。</li>'
+        f'<li>以 e401 为工具变量，依从者净增 +${late["est"]:,.0f}（95% CI [${late["ci95_low"]:,.0f}, ${late["ci95_high"]:,.0f}]），符合 ATE÷0.7045 尺度关系。</li>'
         '</ul>'
         '</div>'
         '</div>'
         '</div>'
     )
-    slides.append(wrap_slide(10, 3, "五、实证分析（二）：重叠性检验、协变量敏感性与工具变量 LATE",
+    slides.append(wrap_slide(10, 3, "五、实证分析（二）：重叠性检验、OVB 敏感性与工具变量 LATE",
                            "", s10_body, notes_list[9]))
 
-    # Slide 11: Empirical Analysis III - Income Heterogeneity (GATE)
+    # Slide 11: Empirical Analysis III - 2D Income x Age GATE & DR-Learner CATE
     rows11 = []
     for i, g in enumerate(gates):
         cls = ' class="hl-row"' if i in (0, 3) else ""
@@ -963,81 +968,84 @@ def main() -> None:
             f'<td class="num-col">[${g["ci95_low"]:,.0f}, ${g["ci95_high"]:,.0f}]</td>'
             f'<td class="num-col">{g["effect_to_income_pct"]:.1f}%</td></tr>'
         )
+    q4_50 = gate_2d[("Q4 (高收入)", "50+ 岁")]["gate"]
+    q1_mid = gate_2d[("Q1 (低收入)", "35–49 岁")]["gate"]
+    q1_old = gate_2d[("Q1 (低收入)", "50+ 岁")]["gate"]
     s11_body = (
         '<div class="lead-banner">'
-        '<strong>异质性因果分析：</strong>为刻画不同收入阶层的差异化响应，对 HGB DML-IRM 交叉拟合正交伪结果 <span class="hat">φ</span><sub>i</sub> 按年收入四分位分组估计群体平均效应（GATE）。结果揭示<strong>显著双极分化特征</strong>，如下：'
+        f'<strong>二维交互异质性与连续 CATE：</strong>基于正交伪结果 <span class="hat">φ</span><sub>i</sub>，拓展至“收入 × 年龄”二维 GATE 与 Kennedy (2023) DR-Learner 连续曲线。结果揭示<strong>年龄与收入协同分化：Q4 × 50+ 岁达 +${q4_50:,.0f}</strong>：'
         '</div>'
-        '<div class="row" style="flex:1.15;">'
-        '<div class="fig-box" style="flex:1.62;">'
-        '<img src="../outputs/figures/fig6_401k_heterogeneity_gate.png" alt="图6 收入四分位异质性GATE"/>'
+        '<div class="row" style="flex:1.18;">'
+        '<div class="fig-box" style="flex:1.68;">'
+        '<img src="../outputs/figures/fig6_401k_heterogeneity_gate.png" alt="图6 二维GATE热力图与DR-Learner连续CATE曲线"/>'
         '</div>'
         '<div class="col" style="flex:1;">'
         '<div class="card blue" style="flex:1;justify-content:center;">'
-        '<div class="card-hd" style="font-size:18px;">异质性响应的核心机制解读</div>'
-        '<ul class="ul compact" style="font-size:15.8px;">'
-        f'<li><span class="hl">绝对增量集中高收入层</span>：Q4 组（中位年收 ${gates[3]["median_inc"]:,.0f}）单户净增 <span class="hl-teal">+${gates[3]["gate"]:,.0f}</span>，占总 AUM 增量主力。</li>'
-        f'<li><span class="hl-amber">相对杠杆以低收入最高</span>：Q1 组增量 +${gates[0]["gate"]:,.0f} 占中位年收 <span class="hl-red">{gates[0]["effect_to_income_pct"]:.1f}%</span>（p&lt;0.001），极少资产挤出。</li>'
-        f'<li><span class="hl">Q2 呈流动性约束</span>：区间 [${gates[1]["ci95_low"]:,.0f}, ${gates[1]["ci95_high"]:,.0f}] 跨零，受刚性现金流支出制约。</li>'
+        '<div class="card-hd" style="font-size:17.5px;">二维交互（6a）与 DR-Learner 机制（6b）</div>'
+        '<ul class="ul compact" style="font-size:15px;">'
+        f'<li><span class="hl">绝对峰值在 Q4×50+ 岁</span>：达 <span class="hl-teal">+${q4_50:,.0f}*</span>（n=600）；Q4×35–49 岁达 +$18,337***（n=1,342）。</li>'
+        f'<li><span class="hl-amber">Q1 年龄结构显著分化</span>：35 岁前仅 +$155（刚性支出束缚），而 35–49 岁与 50+ 岁升至 <span class="hl">+${q1_mid:,.0f}***</span> 与 +${q1_old:,.0f}**。</li>'
+        f'<li><span class="hl">连续 CATE 曲线</span>：由 D4 低谷（+$2,004）单调爬升至 D10（+${dr_curve[-1]["dr_cate_mean"]:,.0f}），而 D1 相对年收撬动率达 <span class="hl-red">{dr_curve[0]["dr_rel_inc_pct"]:.1f}%</span>。</li>'
         '</ul>'
         '</div>'
         '</div>'
         '</div>'
-        '<table class="tbl" style="font-size:14.8px;">'
+        '<table class="tbl" style="font-size:14.4px;">'
         '<thead><tr><th>家庭年收入分层</th><th class="num-col">样本量</th><th class="num-col">组内中位年收</th><th class="num-col">GATE 因果增量</th><th class="num-col">标准误 SE</th><th class="num-col">95% 置信区间</th><th class="num-col">增量 / 中位年收</th></tr></thead>'
         f'<tbody>{"".join(rows11)}</tbody>'
         '</table>'
     )
-    slides.append(wrap_slide(11, 3, "五、实证分析（三）：基于正交伪结果的收入异质性效应（GATE）",
+    slides.append(wrap_slide(11, 3, "五、实证分析（三）：二维交互 GATE 与 DR-Learner 连续异质性",
                            "", s11_body, notes_list[10]))
 
     # Slide 12: Conclusions I - Model Performance & Empirical Implications
     s12_body = (
         '<div class="grid-2" style="flex:1;">'
-        '<div class="card blue" style="padding:15px 20px;gap:12px;">'
-        '<div class="card-hd" style="font-size:21.5px;">一、DML 模型性能综合评估（核心结论）</div>'
-        '<ul class="ul" style="font-size:19px;line-height:1.52;gap:14px;">'
-        '<li><span class="hl">1. 理论机制验证：双支柱协同消除双类偏误</span><br>Monte Carlo 模拟证实，联合 Neyman 正交化与 5-折交叉拟合可在非线性混杂下实现近似无偏（均值 1.997 vs 真值 2.000），将 RMSE 降至 <span class="hl-teal">0.032</span>，并把 95% 区间覆盖率由 0.0% 恢复至 <span class="hl-teal">96.5%</span>。</li>'
-        '<li><span class="hl">2. 实证跨学习器稳健性与估计精度优势</span><br>在 9,915 户真实家庭数据上，Lasso、Ridge、RF 与 HGB 四类算法下的 DML-IRM ATE 收敛于 <span class="hl-teal">+$7,822 ~ +$8,693</span>，标准误（$1,142–$1,250）明显优于线性 OLS（$1,524）与 1:1 PSM（ATT SE $3,026）。</li>'
-        '<li><span class="hl">3. 统一框架延展能力强</span><br>同一正交得分体系平滑拓展至工具变量（IIVM LATE +$12,107）与收入异质性（GATE），兼具通用性与严密性。</li>'
+        '<div class="card blue" style="padding:14px 18px;gap:10px;">'
+        '<div class="card-hd" style="font-size:20.5px;">一、DML 模型性能综合评估（核心结论）</div>'
+        '<ul class="ul" style="font-size:17.5px;line-height:1.48;gap:11px;">'
+        f'<li><span class="hl">1. 理论机制验证：双支柱收敛与渐近正态</span><br>Monte Carlo 模拟验证 t 统计量服从 N(0,1)（KS p={ts_norm["ks_p"]:.3f}），n∈{{250..2000}} 严格沿 O(n<sup>−1/2</sup>) 收敛（RMSE 降至 <span class="hl-teal">0.032</span>），95% 覆盖率恢复至 <span class="hl-teal">96.5%</span>。</li>'
+        '<li><span class="hl">2. 实证去混杂、多算法收敛与超参稳健性</span><br>9 项协变量 |SMD| 全部压至 0.058 以下；四类算法 IRM-ATE 紧凑收敛于 <span class="hl-teal">+$7,822 ~ +$8,693</span>，K=2..10 与截断阈值变动下结果极稳健。</li>'
+        '<li><span class="hl">3. 统一框架高维敏感性与异质拓展能力</span><br>同一正交体系平滑导出 OVB 边界（RV=5.1%）、工具变量 LATE（+$12,107）与二维 GATE / DR-Learner 曲线。</li>'
         '</ul>'
         '</div>'
-        '<div class="card teal" style="padding:15px 20px;gap:12px;">'
-        '<div class="card-hd" style="font-size:21.5px;">二、401(k) 实证发现与商业政策决策启示</div>'
-        '<ul class="ul" style="font-size:19px;line-height:1.52;gap:14px;">'
-        '<li><span class="hl">1. 证实税收递延养老金的净储蓄创造效应</span><br>剥离年收入 SMD (+0.637) 等高阶混杂后，401(k) 资格与实际参与仍分别带来 +$8,693 与 +$12,107 净金融资产增量，拒绝“纯资产替代”假说。</li>'
-        '<li><span class="hl">2. 商业金融机构分层运营与 AUM 考核优化</span><br>Q4 高收入群体单户撬动 +$20,588 净金融资产，应作为企业代发与个人养老金高阶组合核心获客池，并以整户净资产增量考核净扩张贡献。</li>'
-        '<li><span class="hl">3. 普惠养老政策工具设计启发</span><br>Q1 低收入群体相对收入撬动率达 36.6%（p&lt;0.001），表明“默认自动加入 ＋ 定额财政/雇主配比”对提升中低收入长期财富缓冲显著有效。</li>'
+        '<div class="card teal" style="padding:14px 18px;gap:10px;">'
+        '<div class="card-hd" style="font-size:20.5px;">二、401(k) 实证发现与商业政策决策启示</div>'
+        '<ul class="ul" style="font-size:17.5px;line-height:1.48;gap:11px;">'
+        '<li><span class="hl">1. 证实税收递延养老金的净储蓄创造效应</span><br>剥离年收入与 DB 等高阶混杂且经 OVB 与剔除 pira 检验后，401(k) 资格与参与仍分别净增 +$8,693 与 +$12,107，拒绝“纯资产替代”假说。</li>'
+        f'<li><span class="hl">2. 金融机构分层获客：锁定中老年高收入客群</span><br>Q4 单户净增 +$20,588 且 <span class="hl-teal">Q4×50+ 岁高达 +${q4_50:,.0f}</span>，应作为个人养老金综合财富管理与净 AUM 考核的核心锚点。</li>'
+        '<li><span class="hl">3. 普惠政策精准滴灌：缓解青年低收入流动性约束</span><br>Q1 相对撬动率达 36.6%（D1 达 60.2%）且 35 岁前无显著增量，宜通过“自动加入＋财政配比＋紧急支取通道”激活青年储蓄。</li>'
         '</ul>'
         '</div>'
         '</div>'
     )
     slides.append(wrap_slide(12, 4, "六、研究结论（一）：DML 模型性能总结与实证决策启示",
-                           "DML 在有限样本精度、区间有效性、多学习器一致性与异质性拓展方面均显著优于传统基准模型",
+                           "DML 在有限样本渐近正态、收敛速率、去混杂平衡与跨学习器稳定性方面全面优于传统基准模型",
                            s12_body, notes_list[11]))
 
     # Slide 13: Conclusions II - Model Boundaries & Extensions
     s13_body = (
         '<div class="grid-2" style="flex:1;">'
-        '<div class="card amber" style="padding:15px 20px;gap:12px;">'
-        '<div class="card-hd" style="font-size:21.5px;">一、模型统计假设边界与现实应用局限</div>'
-        '<ul class="ul" style="font-size:19px;line-height:1.52;gap:14px;">'
-        '<li><span class="hl-amber">1. 条件可忽略性假设限制（Unconfoundedness）</span><br>DML 依赖“控制可观测协变量 X 后处置与潜在结果独立”前提，无法消除未观测个人储蓄偏好残留的混杂偏误；需借助工具变量或面板设计补充识别。</li>'
-        '<li><span class="hl-amber">2. 极端倾向得分下的逆概率权重敏感性</span><br>IRM 正交得分包含 1/<span class="hat">m</span>(X) 与 1/(1−<span class="hat">m</span>(X))；当极度不平衡样本中 <span class="hat">m</span>(X) 趋近 0 或 1 时方差易剧烈膨胀，需采用截断或重叠加权（Overlap Weights）。</li>'
-        '<li><span class="hl-amber">3. 收敛速率前提与截面外推限制</span><br>要求两阶段学习器达到 o(n<sup>−1/4</sup>) 速率；此外 1991 年截面数据外推至当前国内养老金体系仍需本土纵贯追踪数据重新标定。</li>'
+        '<div class="card amber" style="padding:14px 18px;gap:10px;">'
+        '<div class="card-hd" style="font-size:20.5px;">一、模型统计假设边界与现实应用局限</div>'
+        '<ul class="ul" style="font-size:17.8px;line-height:1.48;gap:12px;">'
+        '<li><span class="hl-amber">1. 条件可忽略性边界与强未观测混淆风险</span><br>虽已测得稳健阈值 RV=5.1%（对 db/pira 稳健），但若存在与家庭年收入同等强度的未观测储蓄意愿仍足以推翻截面因果结论，须借工具变量或纵贯设计补强。</li>'
+        '<li><span class="hl-amber">2. 极端倾向得分下的逆概率权重方差膨胀</span><br>IRM 正交得分包含 1/<span class="hat">m</span>(X) 与 1/(1−<span class="hat">m</span>(X))；当极度不平衡场景下 <span class="hat">m</span>(X) 趋近 0 或 1 时，需依赖截断或重叠加权（Overlap Weights）控制方差。</li>'
+        '<li><span class="hl-amber">3. 学习器速率门槛与跨时代外推限制</span><br>理论保证要求扰动估计量均达到 o(n<sup>−1/4</sup>)；此外 1991 年美国家庭截面特征外推至当代本土个人养老金制度仍须本地纵贯数据重新标定。</li>'
         '</ul>'
         '</div>'
-        '<div class="card blue" style="padding:15px 20px;gap:12px;">'
-        '<div class="card-hd" style="font-size:21.5px;">二、前沿方法论延伸方向</div>'
-        '<ul class="ul" style="font-size:19px;line-height:1.52;gap:14px;">'
-        '<li><span class="hl">1. 面板双重差分与双向固定效应融合（DID-DML）</span><br>将时间差分或个体固定效应结合至 DML 正交得分，同步消除不随时间变化的未观测个体异质性与时变高维非线性混杂。</li>'
-        '<li><span class="hl">2. 个体条件平均处理效应（CATE / Causal Forest）</span><br>将按四分位聚合的 GATE 进一步精细化至个体层面异质效应估计 <span class="hl-teal">τ(X) = E[Y(1)−Y(0) | X=x]</span>，结合 Policy Tree 输出可解释精准策略规则。</li>'
-        '<li><span class="hl">3. 遗漏变量敏感性定量边界分析（OVB Bounds）</span><br>引入 Chernozhukov 等 (2022) 偏 R² 非参数敏感性框架，定量测算未观测混淆因子至少需解释多少比例残差方差才足以逆转 +$8,693 显著结论。</li>'
+        '<div class="card blue" style="padding:14px 18px;gap:10px;">'
+        '<div class="card-hd" style="font-size:20.5px;">二、前沿方法论延伸方向</div>'
+        '<ul class="ul" style="font-size:17.8px;line-height:1.48;gap:12px;">'
+        '<li><span class="hl">1. 面板双重差分与双向固定效应融合（DID-DML）</span><br>将多期差分或个体固定效应嵌入 DML 正交得分，同时剥离不随时间变化的未观测个人禀赋与时变高维非线性混杂。</li>'
+        '<li><span class="hl">2. 个体条件效应与可解释 Policy Tree 靶向配置</span><br>在本文 DR-Learner 连续曲线基础上结合诚实因果森林（GRF）与深度限制策略树（Policy Tree），直接输出兼顾净收益与合规解释的精准补贴规则。</li>'
+        '<li><span class="hl">3. 动态序贯处理效应（Dynamic DML）</span><br>将单期资格框架推广至多年连续缴费轨迹，采用序贯双重稳健估计评估长期复利累进与提前支取规则调整的跨期总效应。</li>'
         '</ul>'
         '</div>'
         '</div>'
     )
     slides.append(wrap_slide(13, 4, "六、研究结论（二）：模型适用边界、局限性与前沿延伸",
-                           "明确条件可忽略性、重叠度与收敛速率边界，并衔接面板 DID-DML、Causal Forest 与混淆敏感性检验",
+                           "明确 OVB 定量边界、正性重叠与速率约束，并衔接 DID-DML、Policy Tree 与动态序贯因果推断",
                            s13_body, notes_list[12]))
 
     # Slide 14: 3-Min Extended Applications
@@ -1081,17 +1089,17 @@ def main() -> None:
     # Slide 15: References & Q&A
     s15_body = (
         '<div class="row" style="flex:1;">'
-        '<div class="card" style="flex:1.42;padding:13px 16px;gap:8px;">'
-        '<div class="card-hd" style="font-size:19.5px;">主要学术参考文献（已核对刊名、年份与卷期页码）</div>'
-        '<ul class="ul" style="font-size:15.8px;line-height:1.42;gap:7px;">'
+        '<div class="card" style="flex:1.45;padding:12px 16px;gap:6px;">'
+        '<div class="card-hd" style="font-size:18.5px;">主要学术参考文献（已核对刊名、年份与卷期页码）</div>'
+        '<ul class="ul" style="font-size:14.6px;line-height:1.36;gap:5px;">'
         '<li><span class="hl">[1] Chernozhukov et al. (2018).</span> Double/debiased machine learning for treatment and structural parameters. <em>The Econometrics Journal</em>, 21(1), C1–C68.</li>'
-        '<li><span class="hl">[2] Robinson, P. M. (1988).</span> Root-N-consistent semiparametric regression. <em>Econometrica</em>, 56(4), 931–954.</li>'
-        '<li><span class="hl">[3] Robins, J. M., Rotnitzky, A., &amp; Zhao, L. P. (1994).</span> Estimation of regression coefficients when some regressors are not always observed. <em>JASA</em>, 89(427), 846–866.</li>'
-        '<li><span class="hl">[4] Rosenbaum, P. R., &amp; Rubin, D. B. (1983).</span> The central role of the propensity score in observational studies for causal effects. <em>Biometrika</em>, 70(1), 41–55.</li>'
-        '<li><span class="hl">[5] Poterba, J. M., Venti, S. F., &amp; Wise, D. A. (1995).</span> Do 401(k) contributions crowd out other personal saving? <em>Journal of Public Economics</em>, 58(1), 1–32.</li>'
-        '<li><span class="hl">[6] Abadie, A. (2003).</span> Semiparametric instrumental variable estimation of treatment response models. <em>Journal of Econometrics</em>, 113(2), 231–263.</li>'
-        '<li><span class="hl">[7] Chernozhukov, V., &amp; Hansen, C. (2004).</span> The effects of 401(k) participation on the wealth distribution. <em>Rev. Econ. Stat.</em>, 86(3), 735–751.</li>'
-        '<li><span class="hl">[8] Belloni et al. (2014)</span> <em>Rev. Econ. Stud.</em>, 81(2), 608–650; Chernozhukov et al. (2024), <em>CausalAIBook</em>.</li>'
+        '<li><span class="hl">[2] Chernozhukov, V., Cinelli, C., Newey, W. K., Sharma, A., &amp; Syrgkanis, V. (2022).</span> Long story short: Omitted variable bias in causal machine learning. <em>NBER WP 30302</em>.</li>'
+        '<li><span class="hl">[3] Kennedy, E. H. (2023).</span> Towards optimal doubly robust estimation of heterogeneous causal effects. <em>Electron. J. Stat.</em>, 17(2), 3008–3049.</li>'
+        '<li><span class="hl">[4] Robinson, P. M. (1988).</span> Root-N-consistent semiparametric regression. <em>Econometrica</em>, 56(4), 931–954.</li>'
+        '<li><span class="hl">[5] Robins, J. M., Rotnitzky, A., &amp; Zhao, L. P. (1994).</span> Estimation of regression coefficients when some regressors are not always observed. <em>JASA</em>, 89(427), 846–866.</li>'
+        '<li><span class="hl">[6] Rosenbaum, P. R., &amp; Rubin, D. B. (1983).</span> The central role of the propensity score in observational studies for causal effects. <em>Biometrika</em>, 70(1), 41–55.</li>'
+        '<li><span class="hl">[7] Poterba, J. M., Venti, S. F., &amp; Wise, D. A. (1995).</span> Do 401(k) contributions crowd out other personal saving? <em>J. Public Econ.</em>, 58(1), 1–32.</li>'
+        '<li><span class="hl">[8] Abadie, A. (2003); Chernozhukov &amp; Hansen (2004); Belloni et al. (2014).</span> <em>J. Econometrics</em> 113(2); <em>Rev. Econ. Stat.</em> 86(3); <em>Rev. Econ. Stud.</em> 81(2).</li>'
         '</ul>'
         '</div>'
         '<div class="col" style="flex:1;">'
@@ -1101,7 +1109,7 @@ def main() -> None:
         '<li><span style="color:#FBBF24;font-weight:700;">Q1：DML-IRM 与传统 PSM 的本质差异</span><br>双稳健正交得分把偏差压低为乘积 n<sup>−1/4</sup>×n<sup>−1/4</sup>，同时保留全样本信息，将 ATT 标准误从 $3,026 降至 $1,683。</li>'
         '<li><span style="color:#FBBF24;font-weight:700;">Q2：无交叉拟合为何产生负偏误（1.640）？</span><br>深层树模型在全样本上过度拟合噪声，诱发正交残差间人为负相关偏移。</li>'
         '<li><span style="color:#FBBF24;font-weight:700;">Q3：模拟与实证中底层学习器选择逻辑</span><br>模拟以 Poly2+Lasso 检验已知二阶结构；实证并行四类异质模型印证稳健性。</li>'
-        '<li><span style="color:#FBBF24;font-weight:700;">Q4：未观测储蓄偏好的进一步检验路径</span><br>除剔除 pira 与借 e401 估 LATE 外，可引入面板 DID-DML 与偏 R² 敏感性边界。</li>'
+        '<li><span style="color:#FBBF24;font-weight:700;">Q4：未观测储蓄偏好的进一步检验路径</span><br>除剔除 pira（+$8,923）与借 e401 估 LATE（+$12,107）外，已通过 OVB 非参数边界测得 RV=5.1%，后续可衔接面板 DID-DML。</li>'
         '</ul>'
         '</div>'
         '</div>'
@@ -1143,12 +1151,12 @@ def main() -> None:
         "Slide 3｜二、模型原理（一）：部分线性框架与机器学习的两类偏误",
         "Slide 4｜二、模型原理（二）：Neyman 正交化与误差二阶乘积收敛",
         "Slide 5｜二、模型原理（三）：K-折交叉拟合与 PLR / IRM / IIVM 统一框架",
-        "Slide 6｜三、模拟分析（一）：非线性高维混杂 DGP 与抽样分布对比",
-        "Slide 7｜三、模拟分析（二）：点估计精度（RMSE）与置信区间覆盖率检验",
-        "Slide 8｜四、实证研究背景与数据诊断：1991 SIPP 401(k) 养老金计划",
-        "Slide 9｜五、实证分析（一）：传统计量基准与多学习器 DML 主效应对比",
-        "Slide 10｜五、实证分析（二）：重叠性检验、协变量敏感性与工具变量 LATE",
-        "Slide 11｜五、实证分析（三）：基于正交伪结果的收入异质性效应（GATE）",
+        "Slide 6｜三、模拟分析（一）：非线性高维混杂 DGP、抽样分布与正态性校验",
+        "Slide 7｜三、模拟分析（二）：O(n⁻¹/²) 收敛速率、RMSE 与置信区间覆盖率检验",
+        "Slide 8｜四、实证研究背景与数据诊断：非线性选择偏误与 DML 平衡性检验",
+        "Slide 9｜五、实证分析（一）：主效应对比、第一阶段诊断与 K-折稳健性",
+        "Slide 10｜五、实证分析（二）：重叠性检验、OVB 敏感性与工具变量 LATE",
+        "Slide 11｜五、实证分析（三）：二维交互 GATE 与 DR-Learner 连续异质性",
         "Slide 12｜六、研究结论（一）：DML 模型性能总结与实证决策启示",
         "Slide 13｜六、研究结论（二）：模型适用边界、局限性与前沿延伸",
         "Slide 14｜七、模型拓展应用：结合实习与研究领域的 3 分钟个人阐述",
@@ -1194,7 +1202,7 @@ def main() -> None:
         "3. **为什么模拟实验使用 Poly2 + LassoCV，而 401(k) 实证采用四类学习器？**",
         "   - **答**：在模拟 DGP 中，真实扰动函数已知为 20 维中的二阶多项式与交互结构，采用与函数族匹配的 Poly2 + LassoCV（收敛速率满足 $o(n^{-1/4})$）可清晰剥离并检验正交化与交叉拟合的独立贡献；而在真实 401(k) 数据中真实函数形式未知，因此并行采用 Lasso、Ridge、随机森林与 HistGradientBoosting 四类差异化算法进行交叉验证，四者均收敛于 $7,822–$8,693，证明结论不依赖特定模型设定。",
         "4. **如果雇主提供 401(k) 与员工未观测到的主观储蓄偏好相关，如何进一步检验或缓解？**",
-        "   - **答**：条件可忽略性假设无法直接控制未观测变量，这是截面观测因果推断的核心边界。本研究一方面通过剔除与主观意愿相关的争议变量 `pira` 进行敏感性重估（ATE 为 `$8,923`），另一方面以 `e401` 作为 `p401` 的工具变量采用 DML-IIVM 估计依从者效应（LATE 为 `$12,107`）。进一步拓展可结合纵贯面板双重差分（DID-DML）及偏 $R^2$ 混淆强度敏感性边界予以加固。",
+        "   - **答**：条件可忽略性假设无法直接控制未观测变量，这是截面观测因果推断的核心边界。本研究通过三层防线加以定量应对：第一，剔除争议变量 `pira` 重估后 ATE 仍达 `$8,923`；第二，依据 Chernozhukov 等 (2022) 非参数 OVB 边界测得稳健阈值 `RV=5.1%`，即使引入等同 `db` 或 `pira` 解释力的未观测混杂，ATE 下界仍高达 `+$5,265` 与 `+$4,624`；第三，以 `e401` 为 `p401` 工具变量借助 DML-IIVM 估得依从者 LATE 为 `$12,107`。",
     ])
     OUT_SPEECH.write_text("\n".join(speech_lines) + "\n", encoding="utf-8")
     print(f"Built {OUT_HTML.name} and {OUT_SPEECH.name}")
