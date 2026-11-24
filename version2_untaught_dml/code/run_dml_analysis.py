@@ -477,40 +477,42 @@ def plot_fig1_sim_dist(sim_res: Dict) -> None:
 
 def plot_fig2_sim_metrics(sim_res: Dict) -> None:
     df_s = pd.DataFrame(sim_res["summary"])
-    fig, axes = plt.subplots(1, 2, figsize=(13.5, 5.0))
+    fig, axes = plt.subplots(1, 2, figsize=(11.6, 4.5))
     colors = ["#7F7F7F", "#C55A11", "#C00000", "#1F4E79"]
     short_names = ["Naive\nOLS", "Direct ML\n(无正交)", "Orthogonal\n(无交叉拟合)", "完整 DML\n(双支柱)"]
     x = np.arange(len(df_s))
 
     b1 = axes[0].bar(x, df_s["rmse"], color=colors, width=0.55, alpha=0.92)
     for bar, v in zip(b1, df_s["rmse"]):
-        axes[0].text(bar.get_x() + bar.get_width() / 2, v + 0.015, f"{v:.3f}", ha="center", va="bottom", fontsize=9.5, fontweight="bold")
+        axes[0].text(bar.get_x() + bar.get_width() / 2, v + 0.015, f"{v:.3f}", ha="center", va="bottom", fontsize=12.0, fontweight="bold")
     axes[0].set_xticks(x)
-    axes[0].set_xticklabels(short_names, fontsize=9.5)
-    axes[0].set_ylabel("均方根误差 RMSE（越低越好）", fontsize=10.5)
-    axes[0].set_ylim(0, df_s["rmse"].max() * 1.22)
-    axes[0].set_title("(a) 点估计 RMSE 对比", fontsize=11.5, fontweight="bold")
+    axes[0].set_xticklabels(short_names, fontsize=11.5)
+    axes[0].tick_params(axis="y", labelsize=11.5)
+    axes[0].set_ylabel("均方根误差 RMSE（越低越好）", fontsize=12.5)
+    axes[0].set_ylim(0, df_s["rmse"].max() * 1.24)
+    axes[0].set_title("(a) 点估计 RMSE 对比", fontsize=13.5, fontweight="bold")
     axes[0].grid(axis="y", alpha=0.25)
 
     b2 = axes[1].bar(x, df_s["coverage_95_pct"], color=colors, width=0.55, alpha=0.92)
     axes[1].axhline(95.0, color="#111111", ls="--", lw=1.8, label="名义水平 95%")
     for bar, v in zip(b2, df_s["coverage_95_pct"]):
-        axes[1].text(bar.get_x() + bar.get_width() / 2, v + 1.5, f"{v:.1f}%", ha="center", va="bottom", fontsize=9.5, fontweight="bold")
+        axes[1].text(bar.get_x() + bar.get_width() / 2, v + 1.8, f"{v:.1f}%", ha="center", va="bottom", fontsize=12.0, fontweight="bold")
     axes[1].set_xticks(x)
-    axes[1].set_xticklabels(short_names, fontsize=9.5)
-    axes[1].set_ylabel("95% 置信区间经验覆盖率 (%)", fontsize=10.5)
-    axes[1].set_ylim(0, 112)
-    axes[1].set_title("(b) 95% 置信区间覆盖率（推断有效性检验）", fontsize=11.5, fontweight="bold")
-    axes[1].legend(fontsize=9.5, loc="upper left")
+    axes[1].set_xticklabels(short_names, fontsize=11.5)
+    axes[1].tick_params(axis="y", labelsize=11.5)
+    axes[1].set_ylabel("95% 置信区间经验覆盖率 (%)", fontsize=12.5)
+    axes[1].set_ylim(0, 114)
+    axes[1].set_title("(b) 95% 置信区间覆盖率（推断有效性检验）", fontsize=13.5, fontweight="bold")
+    axes[1].legend(fontsize=11.5, loc="upper left")
     axes[1].grid(axis="y", alpha=0.25)
 
-    fig.suptitle("图2：DML 两大支柱（Neyman 正交化 + Cross-Fitting）的不可替代性验证", fontsize=13.5, fontweight="bold", y=1.02)
+    fig.suptitle("图2：DML 两大支柱（Neyman 正交化 + Cross-Fitting）的不可替代性验证", fontsize=15.0, fontweight="bold", y=1.02)
     fig.savefig(FIG_DIR / "fig2_simulation_coverage_rmse.png", bbox_inches="tight")
     plt.close(fig)
 
 
 def plot_fig3_401k_eda(df: pd.DataFrame, covs: List[str]) -> pd.DataFrame:
-    fig, axes = plt.subplots(1, 2, figsize=(14.2, 5.4))
+    fig, axes = plt.subplots(1, 2, figsize=(12.2, 5.2))
 
     ax1 = axes[0]
     y0 = df.loc[df["e401"] == 0, "net_tfa"] / 1000.0
@@ -521,10 +523,11 @@ def plot_fig3_401k_eda(df: pd.DataFrame, covs: List[str]) -> pd.DataFrame:
     ax1.hist(np.clip(y1, -40, 220), bins=bins, density=True, alpha=0.55, color="#1F4E79", label=f"有资格组 e401=1 (均值 ${y1.mean():.1f}k)")
     ax1.axvline(y0.mean(), color="#4D4D4D", ls="--", lw=1.8)
     ax1.axvline(y1.mean(), color="#1F4E79", ls="--", lw=1.8)
-    ax1.set_xlabel("家庭净金融资产 net_tfa (千美元，展示截断至 [-40k, 220k])", fontsize=10)
-    ax1.set_ylabel("样本密度", fontsize=10)
-    ax1.set_title("(a) 净金融资产分布：组间原始均值差达 +$19,559", fontsize=11.5, fontweight="bold")
-    ax1.legend(fontsize=8.8)
+    ax1.tick_params(axis="both", labelsize=11.0)
+    ax1.set_xlabel("家庭净金融资产 net_tfa (千美元，展示截断至 [-40k, 220k])", fontsize=12.0)
+    ax1.set_ylabel("样本密度", fontsize=12.0)
+    ax1.set_title("(a) 净金融资产分布：原始均值差 +$19,559", fontsize=13.0, fontweight="bold")
+    ax1.legend(fontsize=10.5)
     ax1.grid(alpha=0.25)
 
     ax2 = axes[1]
@@ -547,24 +550,25 @@ def plot_fig3_401k_eda(df: pd.DataFrame, covs: List[str]) -> pd.DataFrame:
     ax2.axvline(0.1, color="#555555", ls="--", lw=1.1, label="|SMD| = 0.1 平衡警戒线")
     ax2.axvline(-0.1, color="#555555", ls="--", lw=1.1)
     for idx, s in enumerate(smd_df["smd"]):
-        ax2.text(s + (0.015 if s >= 0 else -0.015), idx, f"{s:+.3f}", va="center", ha="left" if s >= 0 else "right", fontsize=8.5)
+        ax2.text(s + (0.015 if s >= 0 else -0.015), idx, f"{s:+.3f}", va="center", ha="left" if s >= 0 else "right", fontsize=10.8)
     ax2.set_yticks(y_pos)
-    ax2.set_yticklabels(smd_df["label"], fontsize=9.2)
-    ax2.set_xlim(-0.22, smd_df["smd"].max() + 0.16)
-    ax2.set_xlabel("标准化均值差 (SMD: Treated - Control)", fontsize=10)
-    ax2.set_title("(b) 严重选择偏差：高收入/高学历/有房家庭更易获 401(k)", fontsize=11.5, fontweight="bold")
-    ax2.legend(fontsize=8.5, loc="lower right")
+    ax2.set_yticklabels(smd_df["label"], fontsize=11.2)
+    ax2.tick_params(axis="x", labelsize=11.0)
+    ax2.set_xlim(-0.22, smd_df["smd"].max() + 0.18)
+    ax2.set_xlabel("标准化均值差 (SMD: Treated - Control)", fontsize=12.0)
+    ax2.set_title("(b) 严重选择偏差：高收入/有房家庭更易获 401(k)", fontsize=13.0, fontweight="bold")
+    ax2.legend(fontsize=10.5, loc="lower right")
     ax2.grid(axis="x", alpha=0.25)
 
-    fig.subplots_adjust(wspace=0.44)
-    fig.suptitle("图3：1991 SIPP 401(k) 真实数据探索与混杂偏差诊断（N = 9,915）", fontsize=13.5, fontweight="bold", y=1.02)
+    fig.subplots_adjust(wspace=0.46)
+    fig.suptitle("图3：1991 SIPP 401(k) 真实数据探索与混杂偏差诊断（N = 9,915）", fontsize=14.8, fontweight="bold", y=1.02)
     fig.savefig(FIG_DIR / "fig3_401k_eda_confounding.png", bbox_inches="tight")
     plt.close(fig)
     return smd_df
 
 
 def plot_fig4_forest(forest_df: pd.DataFrame) -> None:
-    fig, ax = plt.subplots(figsize=(11.2, 6.5))
+    fig, ax = plt.subplots(figsize=(10.4, 6.2))
     df_p = forest_df.iloc[::-1].reset_index(drop=True)
     y = np.arange(len(df_p))
 
@@ -577,17 +581,18 @@ def plot_fig4_forest(forest_df: pd.DataFrame) -> None:
         plotted_groups.add(grp)
         ax.errorbar(
             row["est"], idx, xerr=1.96 * row["se"],
-            fmt="o", color=col, ecolor=col, elinewidth=2.3, capsize=4.5, ms=7.2, label=lbl
+            fmt="o", color=col, ecolor=col, elinewidth=2.4, capsize=4.8, ms=7.6, label=lbl
         )
-        ax.text(row["est"] + 1.96 * row["se"] + 350, idx, f"${row['est']:,.0f} (±${1.96*row['se']:,.0f})", va="center", fontsize=10.0)
+        ax.text(row["est"] + 1.96 * row["se"] + 380, idx, f"${row['est']:,.0f} (±${1.96*row['se']:,.0f})", va="center", fontsize=11.0)
 
     ax.axvline(0, color="#111111", ls=":", lw=1.0)
     ax.set_yticks(y)
-    ax.set_yticklabels(df_p["label"], fontsize=10.8)
-    ax.set_xlabel("401(k) 资格对净金融资产的因果效应估计与 95% 置信区间 (美元)", fontsize=11.5)
-    ax.set_xlim(-500, (df_p["est"] + 1.96 * df_p["se"]).max() * 1.27)
-    ax.set_title("图4：传统计量基准与双重机器学习（DML-PLR / IRM）主效应对比森林图", fontsize=13.5, fontweight="bold", pad=10)
-    ax.legend(fontsize=10.0, loc="lower right", frameon=True, framealpha=0.92)
+    ax.set_yticklabels(df_p["label"], fontsize=11.8)
+    ax.tick_params(axis="x", labelsize=11.0)
+    ax.set_xlabel("401(k) 资格对净金融资产的因果效应估计与 95% 置信区间 (美元)", fontsize=12.2)
+    ax.set_xlim(-500, (df_p["est"] + 1.96 * df_p["se"]).max() * 1.32)
+    ax.set_title("图4：传统计量基准与双重机器学习（DML-PLR / IRM）主效应对比森林图", fontsize=14.2, fontweight="bold", pad=10)
+    ax.legend(fontsize=11.0, loc="lower right", frameon=True, framealpha=0.92)
     ax.grid(axis="x", alpha=0.25)
     fig.savefig(FIG_DIR / "fig4_401k_model_comparison_forest.png", bbox_inches="tight")
     plt.close(fig)
@@ -610,33 +615,40 @@ def plot_fig5_overlap(ps_hat: np.ndarray, D: np.ndarray) -> None:
 
 
 def plot_fig6_gate(gate_df: pd.DataFrame) -> None:
-    fig, axes = plt.subplots(1, 2, figsize=(13.8, 5.2))
+    fig, axes = plt.subplots(1, 2, figsize=(12.4, 4.6))
     x = np.arange(len(gate_df))
+    short_q_labels = [
+        f"{str(q).split(' ')[0]} {str(q).split(' ')[1].strip('()')}\n${inc/1000:.1f}k"
+        for q, inc in zip(gate_df["quartile"], gate_df["median_inc"])
+    ]
 
     ax1 = axes[0]
-    bars = ax1.bar(x, gate_df["gate"], yerr=1.96 * gate_df["se"], capsize=5, color=["#8FAADC", "#2E75B6", "#1F4E79", "#0F2C59"], alpha=0.92, width=0.56)
+    bars = ax1.bar(x, gate_df["gate"], yerr=1.96 * gate_df["se"], capsize=5, color=["#8FAADC", "#2E75B6", "#1F4E79", "#0F2C59"], alpha=0.92, width=0.55)
     for bar, v, se_v in zip(bars, gate_df["gate"], gate_df["se"]):
         top_y = v + 1.96 * se_v + 650
-        ax1.text(bar.get_x() + bar.get_width() / 2, top_y, f"${v:,.0f}", ha="center", va="bottom", fontsize=9.2, fontweight="bold")
+        ax1.text(bar.get_x() + bar.get_width() / 2, top_y, f"${v:,.0f}", ha="center", va="bottom", fontsize=11.5, fontweight="bold")
     ax1.set_xticks(x)
-    ax1.set_xticklabels(gate_df["quartile_label"], fontsize=9.2)
-    ax1.set_ylabel("群体平均处理效应 GATE (美元)", fontsize=10.5)
-    ax1.set_ylim(0, (gate_df["gate"] + 1.96 * gate_df["se"]).max() * 1.18)
-    ax1.set_title("(a) 按收入四分位的绝对净储蓄因果增量 (95% CI)", fontsize=11.5, fontweight="bold")
+    ax1.set_xticklabels(short_q_labels, fontsize=11.0)
+    ax1.tick_params(axis="y", labelsize=11.0)
+    ax1.set_ylabel("群体平均处理效应 GATE (美元)", fontsize=12.0)
+    ax1.set_ylim(0, (gate_df["gate"] + 1.96 * gate_df["se"]).max() * 1.20)
+    ax1.set_title("(a) 按收入四分位的绝对净储蓄增量 (95% CI)", fontsize=12.8, fontweight="bold")
     ax1.grid(axis="y", alpha=0.25)
 
     ax2 = axes[1]
-    b2 = ax2.bar(x, gate_df["effect_to_income_pct"], color=["#C55A11", "#D9822B", "#2E75B6", "#1F4E79"], alpha=0.9, width=0.56)
+    b2 = ax2.bar(x, gate_df["effect_to_income_pct"], color=["#C55A11", "#D9822B", "#2E75B6", "#1F4E79"], alpha=0.9, width=0.55)
     for bar, v in zip(b2, gate_df["effect_to_income_pct"]):
-        ax2.text(bar.get_x() + bar.get_width() / 2, v + 0.6, f"{v:.1f}%", ha="center", va="bottom", fontsize=9.2, fontweight="bold")
+        ax2.text(bar.get_x() + bar.get_width() / 2, v + 0.7, f"{v:.1f}%", ha="center", va="bottom", fontsize=11.5, fontweight="bold")
     ax2.set_xticks(x)
-    ax2.set_xticklabels(gate_df["quartile_label"], fontsize=9.2)
-    ax2.set_ylabel("因果效应 / 组内中位年收入 (%)", fontsize=10.5)
-    ax2.set_ylim(0, gate_df["effect_to_income_pct"].max() * 1.2)
-    ax2.set_title("(b) 相对年收入的边际财富撬动率（高收入效应绝对大、中低收入杠杆高）", fontsize=11.0, fontweight="bold")
+    ax2.set_xticklabels(short_q_labels, fontsize=11.0)
+    ax2.tick_params(axis="y", labelsize=11.0)
+    ax2.set_ylabel("因果效应 / 组内中位年收入 (%)", fontsize=12.0)
+    ax2.set_ylim(0, gate_df["effect_to_income_pct"].max() * 1.22)
+    ax2.set_title("(b) 相对年收入的边际财富撬动率", fontsize=12.8, fontweight="bold")
     ax2.grid(axis="y", alpha=0.25)
 
-    fig.suptitle("图6：基于 Neyman 正交伪结果的收入异质性因果效应（GATE）与商业客群洞察", fontsize=13.5, fontweight="bold", y=1.02)
+    fig.subplots_adjust(wspace=0.28)
+    fig.suptitle("图6：基于 Neyman 正交伪结果的收入异质性因果效应（GATE）", fontsize=14.6, fontweight="bold", y=1.02)
     fig.savefig(FIG_DIR / "fig6_401k_heterogeneity_gate.png", bbox_inches="tight")
     plt.close(fig)
 
@@ -798,8 +810,8 @@ def main() -> None:
     print(gate_df[["quartile", "median_inc", "gate", "se", "effect_to_income_pct"]].to_string(index=False))
 
 
-def replot_fig4_only() -> None:
-    """Clean labels in 401k_model_comparison.csv and re-render Figure 4 without re-running full MC/DML."""
+def replot_figs(fig4_only: bool = False) -> None:
+    """Re-render Figures 2, 3, 4, 6 (or Fig 4 only) from saved JSON/CSV outputs without re-running MC/DML."""
     ensure_dirs()
     csv_path = TAB_DIR / "401k_model_comparison.csv"
     forest_df = pd.read_csv(csv_path)
@@ -812,14 +824,30 @@ def replot_fig4_only() -> None:
     forest_df["label"] = forest_df["label"].replace(label_map)
     forest_df.to_csv(csv_path, index=False)
     plot_fig4_forest(forest_df)
-    print("Updated 401k_model_comparison.csv and replotted fig4_401k_model_comparison_forest.png")
+    if fig4_only:
+        print("Updated 401k_model_comparison.csv and replotted fig4_401k_model_comparison_forest.png")
+        return
+
+    summary = json.loads((OUT_DIR / "results_summary.json").read_text(encoding="utf-8"))
+    plot_fig2_sim_metrics(summary["simulation"])
+
+    df = pd.read_csv(DATA_CSV)
+    covs9 = ["age", "inc", "educ", "fsize", "marr", "twoearn", "db", "pira", "hown"]
+    plot_fig3_401k_eda(df, covs9)
+
+    gate_df = pd.read_csv(TAB_DIR / "401k_income_gate.csv")
+    plot_fig6_gate(gate_df)
+    print("Replotted Figures 2, 3, 4, and 6 with enlarged typography.")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run Double/Debiased Machine Learning analysis or replot Fig 4.")
+    parser = argparse.ArgumentParser(description="Run Double/Debiased Machine Learning analysis or replot figures.")
     parser.add_argument("--replot-fig4", action="store_true", help="Clean table labels and regenerate Fig 4 only.")
+    parser.add_argument("--replot-figs", action="store_true", help="Regenerate Figs 2, 3, 4, 6 from saved outputs.")
     args = parser.parse_args()
-    if args.replot_fig4:
-        replot_fig4_only()
+    if args.replot_figs:
+        replot_figs(fig4_only=False)
+    elif args.replot_fig4:
+        replot_figs(fig4_only=True)
     else:
         main()
