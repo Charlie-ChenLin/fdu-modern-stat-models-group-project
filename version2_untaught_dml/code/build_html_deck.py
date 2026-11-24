@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-"""Build Version 2 (Course-Untaught Method: Double/Debiased Machine Learning) 15-slide 1280x720 HTML deck
-and synchronized conversational speech script, dynamically pulling all numbers from
-outputs/results_summary.json.
+"""Build Double/Debiased Machine Learning (DML) 15-slide 1280x720 self-contained HTML deck
+and synchronized academic presentation script, dynamically reading outputs/results_summary.json.
 """
 
 from __future__ import annotations
@@ -16,19 +15,506 @@ JSON_PATH = ROOT_DIR / "outputs" / "results_summary.json"
 OUT_HTML = ROOT_DIR / "presentation" / "版本二_双重机器学习与养老金因果评估.html"
 OUT_SPEECH = ROOT_DIR / "docs" / "演讲稿_12分钟展示与3分钟拓展.md"
 
-# Import shared CSS and viewer JS pattern (self-contained in file)
-from sys import path as sys_path
-sys_path.insert(0, str(ROOT_DIR.parent / "version1_taught_ggm" / "code"))
-from build_html_deck import SHARED_CSS, VIEWER_JS  # noqa: E402
+
+V2_CSS = """
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', -apple-system, sans-serif;
+  background: #0F172A;
+  color: #1E293B;
+  -webkit-font-smoothing: antialiased;
+}
+#deck {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 16px;
+}
+section.slide {
+  width: 1280px;
+  height: 720px;
+  background: #F6F8FB;
+  color: #1E293B;
+  position: relative;
+  overflow: hidden;
+  display: none;
+  flex-direction: column;
+  border-radius: 8px;
+  box-shadow: 0 22px 60px rgba(2, 6, 23, 0.55);
+  transform-origin: center center;
+}
+section.slide.active { display: flex; }
+
+body.export-mode { background: #FFFFFF; }
+body.export-mode #deck {
+  display: block;
+  min-height: auto;
+  padding: 0;
+}
+body.export-mode section.slide {
+  display: flex !important;
+  border-radius: 0;
+  box-shadow: none;
+  margin: 0;
+  transform: none !important;
+}
+body.export-mode #nav-controls,
+body.export-mode #notes-drawer { display: none !important; }
+
+/* Cover slide */
+section.slide.cover {
+  background: linear-gradient(135deg, #072642 0%, #0A365C 58%, #0E5A75 100%);
+  color: #FFFFFF;
+  padding: 36px 50px 28px 50px;
+  justify-content: space-between;
+}
+.cover-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14.5px;
+  color: #CBD5E1;
+  border-bottom: 1px solid rgba(255,255,255,0.18);
+  padding-bottom: 11px;
+}
+.cover-pill {
+  background: rgba(217, 119, 6, 0.22);
+  border: 1px solid rgba(251, 191, 36, 0.55);
+  color: #FDE68A;
+  padding: 4px 14px;
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.cover-main { margin: 10px 0 6px 0; }
+.cover-kicker {
+  font-size: 16px;
+  color: #7DD3FC;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  margin-bottom: 10px;
+}
+.cover-title {
+  font-size: 40px;
+  line-height: 1.24;
+  font-weight: 700;
+  color: #FFFFFF;
+  margin-bottom: 12px;
+}
+.cover-sub {
+  font-size: 17.5px;
+  line-height: 1.5;
+  color: #E2E8F0;
+  max-width: 1120px;
+}
+.cover-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 18px;
+}
+.cover-kpi {
+  background: rgba(255,255,255,0.09);
+  border: 1px solid rgba(255,255,255,0.20);
+  border-radius: 10px;
+  padding: 15px 18px;
+}
+.cover-kpi .val {
+  font-size: 27px;
+  font-weight: 700;
+  color: #FBBF24;
+  margin-bottom: 5px;
+}
+.cover-kpi .lbl {
+  font-size: 15px;
+  font-weight: 600;
+  color: #FFFFFF;
+  margin-bottom: 4px;
+}
+.cover-kpi .desc {
+  font-size: 13.5px;
+  color: #E2E8F0;
+  line-height: 1.42;
+}
+.cover-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  border-top: 1px solid rgba(255,255,255,0.18);
+  padding-top: 13px;
+  font-size: 14px;
+  color: #E2E8F0;
+}
+
+/* Standard slide chrome */
+.sec-bar {
+  height: 34px;
+  background: #0A365C;
+  padding: 0 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.sec-nav { display: flex; gap: 6px; align-items: center; }
+.sec-item {
+  font-size: 13px;
+  color: rgba(255,255,255,0.68);
+  padding: 3px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.sec-item.on {
+  background: rgba(255,255,255,0.20);
+  color: #FFFFFF;
+  font-weight: 700;
+}
+.sec-course { font-size: 13px; color: #93C5FD; font-weight: 500; }
+
+.slide-header {
+  background: #FFFFFF;
+  padding: 10px 34px 8px 34px;
+  border-bottom: 1.5px solid #DCE3EC;
+  flex-shrink: 0;
+}
+.slide-title {
+  font-size: 23px;
+  font-weight: 700;
+  color: #0A365C;
+  line-height: 1.22;
+}
+.slide-sub {
+  font-size: 14.5px;
+  color: #0E7490;
+  margin-top: 3px;
+  font-weight: 500;
+}
+
+.slide-body {
+  flex: 1;
+  min-height: 0;
+  padding: 9px 34px 8px 34px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  overflow: hidden;
+}
+
+.slide-footer {
+  height: 28px;
+  background: #FFFFFF;
+  border-top: 1px solid #E2E8F0;
+  padding: 0 34px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12.5px;
+  color: #64748B;
+  flex-shrink: 0;
+}
+.page-num { font-weight: 700; color: #0A365C; font-size: 13px; }
+
+/* Lead methodological framing banner */
+.lead-banner {
+  background: #EDF4FB;
+  border: 1px solid #C5DAF0;
+  border-left: 4.5px solid #0A365C;
+  border-radius: 0 7px 7px 0;
+  padding: 6px 13px;
+  font-size: 14px;
+  line-height: 1.42;
+  color: #0F172A;
+  flex-shrink: 0;
+}
+.lead-banner strong { color: #0A365C; }
+
+/* Grids & Cards */
+.row { display: flex; gap: 13px; min-height: 0; }
+.col { display: flex; flex-direction: column; gap: 9px; min-height: 0; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; min-height: 0; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; min-height: 0; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 11px; min-height: 0; }
+
+.card {
+  background: #FFFFFF;
+  border: 1px solid #DCE3EC;
+  border-radius: 8px;
+  padding: 10px 14px;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+}
+.card.blue { background: #F0F6FC; border-color: #BFDBFE; }
+.card.teal { background: #ECFEFF; border-color: #A5F3FC; }
+.card.amber { background: #FFFBEB; border-color: #FDE68A; }
+.card.red { background: #FEF2F2; border-color: #FECACA; }
+.card.dark { background: #0A365C; border-color: #0A365C; color: #FFFFFF; }
+
+.card-hd {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0A365C;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border-left: 4px solid #0E7490;
+  padding-left: 8px;
+  line-height: 1.25;
+}
+.card.amber .card-hd { border-left-color: #D97706; color: #92400E; }
+.card.red .card-hd { border-left-color: #B91C1C; color: #991B1B; }
+.card.dark .card-hd { border-left-color: #FBBF24; color: #FFFFFF; }
+
+.ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 14.5px;
+  line-height: 1.44;
+  color: #1E293B;
+}
+.ul.compact { font-size: 13.8px; line-height: 1.40; gap: 4px; }
+.card.dark .ul { color: #E2E8F0; }
+.ul li { position: relative; padding-left: 14px; }
+.ul li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: #0E7490;
+  font-weight: 700;
+}
+.card.amber .ul li::before { color: #D97706; }
+.card.red .ul li::before { color: #B91C1C; }
+.card.dark .ul li::before { color: #FBBF24; }
+
+.p-text { font-size: 14.5px; line-height: 1.45; color: #1E293B; }
+.p-text.compact { font-size: 13.8px; line-height: 1.40; }
+.card.dark .p-text { color: #E2E8F0; }
+.hl { font-weight: 700; color: #0A365C; }
+.hl-teal { font-weight: 700; color: #0E7490; }
+.hl-red { font-weight: 700; color: #B91C1C; }
+.hl-amber { font-weight: 700; color: #B45309; }
+
+.kpi {
+  background: #FFFFFF;
+  border: 1px solid #DCE3EC;
+  border-top: 3.5px solid #0A365C;
+  border-radius: 8px;
+  padding: 8px 10px;
+  text-align: center;
+}
+.kpi .v { font-size: 23px; font-weight: 700; color: #0A365C; }
+.kpi .l { font-size: 14px; font-weight: 600; color: #1E293B; margin-top: 2px; }
+.kpi .s { font-size: 12.5px; color: #475569; margin-top: 2px; }
+
+/* Math styling */
+.math-box {
+  background: #F8FAFC;
+  border: 1px solid #CBD5E1;
+  border-left: 4px solid #0A365C;
+  border-radius: 6px;
+  padding: 7px 12px;
+  font-family: 'Cambria Math', 'Times New Roman', 'PingFang SC', serif;
+  font-size: 16.5px;
+  color: #0F172A;
+  text-align: center;
+  line-height: 1.35;
+}
+.frac {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  vertical-align: middle;
+  margin: 0 3px;
+  font-size: 0.90em;
+  line-height: 1.08;
+}
+.frac .num { border-bottom: 1.5px solid currentColor; padding: 0 4px 1px 4px; }
+.frac .den { padding: 1px 4px 0 4px; }
+.hat {
+  position: relative;
+  display: inline-block;
+}
+.hat::before {
+  content: "^";
+  position: absolute;
+  top: -0.46em;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.75em;
+  font-weight: 700;
+}
+
+/* Tables */
+table.tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  background: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  flex-shrink: 0;
+}
+table.tbl th {
+  background: #0A365C;
+  color: #FFFFFF;
+  font-weight: 600;
+  padding: 5.5px 8px;
+  text-align: left;
+  border-bottom: 1px solid #0A365C;
+}
+table.tbl td {
+  padding: 4.5px 8px;
+  border-bottom: 1px solid #E2E8F0;
+  color: #1E293B;
+  line-height: 1.32;
+}
+table.tbl tr:nth-child(even) td { background: #F8FAFC; }
+table.tbl tr.hl-row td { background: #E0F2FE; font-weight: 700; color: #0A365C; }
+.num-col { text-align: right !important; font-variant-numeric: tabular-nums; }
+
+/* Figure frame */
+.fig-box {
+  background: #FFFFFF;
+  border: 1px solid #DCE3EC;
+  border-radius: 8px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  overflow: hidden;
+}
+.fig-box img {
+  max-width: 100%;
+  max-height: 100%;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.note-strip {
+  background: #F1F5F9;
+  border-left: 4px solid #0E7490;
+  padding: 6px 12px;
+  border-radius: 0 6px 6px 0;
+  font-size: 13.8px;
+  color: #1E293B;
+  line-height: 1.42;
+  flex-shrink: 0;
+}
+
+/* Browser viewer controls */
+#nav-controls {
+  position: fixed;
+  bottom: 16px;
+  right: 20px;
+  background: rgba(15, 23, 42, 0.88);
+  color: #FFFFFF;
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 999px;
+  padding: 6px 14px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+  z-index: 999;
+  backdrop-filter: blur(8px);
+}
+#nav-controls button {
+  background: rgba(255,255,255,0.12);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 999px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 12.5px;
+}
+#nav-controls button:hover { background: rgba(255,255,255,0.24); }
+#notes-drawer {
+  position: fixed;
+  bottom: 58px;
+  right: 20px;
+  width: 560px;
+  max-width: calc(100vw - 40px);
+  background: rgba(15, 23, 42, 0.94);
+  color: #E2E8F0;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  display: none;
+  z-index: 998;
+}
+#notes-drawer.open { display: block; }
+"""
+
+
+VIEWER_JS = """
+<script>
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  const isExport = params.get('export') === '1';
+  const slides = Array.from(document.querySelectorAll('section.slide'));
+  const total = slides.length;
+  let current = 0;
+
+  if (isExport) {
+    document.body.classList.add('export-mode');
+    return;
+  }
+
+  const counter = document.getElementById('slide-counter');
+  const notesBody = document.getElementById('notes-body');
+  const drawer = document.getElementById('notes-drawer');
+
+  function fitScale() {
+    const pad = 28;
+    const scale = Math.min((window.innerWidth - pad) / 1280, (window.innerHeight - pad) / 720, 1.0);
+    slides.forEach(s => { s.style.transform = `scale(${scale.toFixed(4)})`; });
+  }
+
+  function show(idx) {
+    current = Math.max(0, Math.min(total - 1, idx));
+    slides.forEach((s, i) => s.classList.toggle('active', i === current));
+    if (counter) counter.textContent = `${current + 1} / ${total}`;
+    if (notesBody) notesBody.textContent = slides[current].getAttribute('data-notes') || '';
+  }
+
+  window.goSlide = show;
+  document.getElementById('btn-prev').onclick = () => show(current - 1);
+  document.getElementById('btn-next').onclick = () => show(current + 1);
+  document.getElementById('btn-notes').onclick = () => drawer.classList.toggle('open');
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); show(current + 1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); show(current - 1); }
+    else if (e.key === 'n' || e.key === 'N') { drawer.classList.toggle('open'); }
+  });
+
+  window.addEventListener('resize', fitScale);
+  fitScale();
+  show(0);
+})();
+</script>
+"""
 
 
 def sec_bar_html(active_idx: int) -> str:
     secs = [
-        ("01 问题与困境", 1),
-        ("02 DML 原理", 3),
-        ("03 模拟验证", 5),
-        ("04 401(k) 实证与洞察", 7),
-        ("05 边界、拓展与 Q&A", 12),
+        ("01 模型介绍", 1),
+        ("02 模拟分析", 5),
+        ("03 研究背景与数据", 7),
+        ("04 实证分析", 8),
+        ("05 结论、拓展与 Q&A", 11),
     ]
     items = []
     for i, (label, target) in enumerate(secs):
@@ -37,7 +523,7 @@ def sec_bar_html(active_idx: int) -> str:
     return (
         '<div class="sec-bar">'
         f'<div class="sec-nav">{"".join(items)}</div>'
-        '<div class="sec-course">《现代统计模型及应用》· 版本二（前沿未讲授方法：双重机器学习 DML）</div>'
+        '<div class="sec-course">双重机器学习（DML）：理论、模拟与实证</div>'
         '</div>'
     )
 
@@ -52,7 +538,7 @@ def wrap_slide(page: int, sec_idx: int, title: str, subtitle: str, body_html: st
         '</div>'
         f'<div class="slide-body">{body_html}</div>'
         '<div class="slide-footer">'
-        '<span>复旦大学管理学院 DSBA · 双重机器学习（DML）与 401(k) 净储蓄因果效应</span>'
+        '<span>复旦大学管理学院 DSBA · 双重机器学习（DML）理论与应用研究</span>'
         f'<span class="page-num">{page:02d} / 15</span>'
         '</div>'
         '</section>'
@@ -74,35 +560,35 @@ def main() -> None:
 
     notes_list: List[str] = [
         # 1
-        "各位老师、同学好！我们汇报版本二——课堂尚未讲授但紧接讲义 1–3 因果推断的前沿方法：双重机器学习 DML。开场先看一个经典金融困惑：有 401(k) 资格的美国家庭，净金融资产比没资格家庭平均多出 $19,559，可为什么年收入差异 SMD 高达 +0.637？这到底是养老金带来的净储蓄，还是富人自选择幻觉？",
+        "各位老师、同学好！本次汇报的主题是《双重机器学习（DML）与高维因果推断：理论原理、模拟验证与 401(k) 实证研究》。针对高维非线性混杂下传统参数方法易误设、直接机器学习又导致置信区间失效的问题，本研究系统剖析 Chernozhukov 等 (2018) 提出的双重机器学习框架，依次通过 200 次 Monte Carlo 模拟验证与 9,915 户 1991 SIPP 401(k) 养老金实证评估其性能与边界。",
         # 2
-        f"细看 1991 SIPP {emp['n']:,} 户真实调查数据：有资格家庭不仅年收入 SMD 达 +0.637，有固定收益养老金 (db) 和自有住房 (hown) 的比例也显著更高。所以 $19,559 里混进了大量本来就更富有的起点差异。资管机构和财政部门最想知道：扣除这些特征后，真正新创造的储蓄到底有多少？",
+        "首先介绍模型提出背景与文献演进脉络。从潜在结果框架出发，因果推断经历了 Robinson (1988) 部分线性半参数回归与 Rosenbaum & Rubin (1983) 倾向得分匹配，再发展到 Robins 等 (1994) 的双稳健 AIPW 估计与 Belloni 等 (2014) 高维稀疏控制，最终在 Chernozhukov 等 (2018) 形成结合非参数机器学习、Neyman 正交化与交叉拟合的完整 DML 体系，解决了高维非线性控制与有效统计推断之间的矛盾。",
         # 3
-        "回到讲义 1–3 学过的方法：线性 OLS 只能假定收入和财富成一条直线，结果把真实效应压低到 $5,896；一次方加进二次多项式就立刻跳到 $9,836。而 1:1 倾向得分匹配丢掉了不少难配对的对照样本，ATT 标准误膨胀到 $3,026。那能不能直接拿随机森林或 GBDT 来算因果？答案是直接套用会让置信区间彻底崩溃！",
+        "接着从部分线性回归模型（Robinson, 1988）出发，剖析普通机器学习直接代入因果估计的两类核心偏误：第一，正则化偏误（Regularization Bias），惩罚项导致扰动函数收敛速度仅为 n^(-1/4) 量级，一阶误差乘以 √n 后趋于发散；第二，过拟合偏误（Overfitting Bias），复杂机器学习模型若在同一全样本上拟合与预测残差，会因样本内拟合噪声产生虚假相关性，同样破坏估计量的一阶渐近无偏性。",
         # 4
-        "为什么直接上机器学习会翻车？两大坑：一是为了防过拟合做的正则化收缩会留下 n⁻¹/⁴ 量级的偏差，乘上 √n 就发散；二是全样本拟合后直接算样本内残差会产生过拟合伪相关。DML 的第一根支柱是 Neyman 正交化：同时对结果 Y 和处置 D 做预测并取残差，正交得分一阶导数为零，把误差缩成两个学习器误差的乘积 n⁻¹/⁴ × n⁻¹/⁴ = n⁻¹/²，瞬间恢复根号 n 一致性！",
+        "为克服上述两类偏误，DML 引入第一项核心机制——Neyman 正交化。通过构造局部 Gateaux 导数为零的正交得分函数 ψ(W; θ, η)，同时对结果变量 Y 与处置变量 D 进行条件期望建模并取残差，从而将估计偏误的一阶项完全消除，仅余两项扰动估计误差的二阶乘积 ||ℓ̂−ℓ₀||₂ × ||m̂−m₀||₂。当各学习器达到 o(n^(-1/4)) 收敛速率时，乘积项即可达到 o(n^(-1/2))，从而严格恢复 √n-一致性与渐近正态性。",
         # 5
-        "第二根支柱是 K 折交叉拟合（Cross-Fitting）：每折的残差只用另外 4 折训练出的模型去预测，彻底切断样本内过拟合幽灵，且重复 5 次随机切分取中位数稳定结果。模型形态上，除了假定常斜率的 PLR，我们还跑了允许异质性反应的双稳健 IRM，并用讲义 1.2.5 工具变量思路跑了 IIVM 估计实际参与效应。",
+        "在此基础上，DML 进一步引入第二项核心机制——K-折交叉拟合（Cross-Fitting）。通过将样本随机均分为 5 折、每次仅使用折外 K−1 折训练所得的扰动模型来计算当前验证折的残差，彻底阻断样本内过拟合引发的噪声相关，并保留全样本统计效率；实证中依据 Chernozhukov 等 (2018) 定义 3.3 重复 5 次分层切分取中位数并计入切分间方差。由此构建起同质斜率 PLR、异质双稳健 IRM 以及工具变量 IIVM 的统一因果推断框架。",
         # 6
-        f"按大作业要求，我们先用 B={cfg['B']} 次、n={cfg['n']}、p={cfg['p']} 维非线性含噪模拟展示 DML 的不可替代性（真值 θ₀={cfg['theta0']:.1f}）。看图 1：线性 OLS 误设右偏到 2.254；直接森林插值左偏到 1.134；仅正交不做交叉拟合过拟合偏到 1.640；只有完整 DML 居中在 1.997，偏差仅 -0.003！",
+        f"针对有限样本下的去偏与推断性能，本研究设计了 B={cfg['B']} 次重复、n={cfg['n']}、p={cfg['p']} 维（含二阶平方及交互项，真值 θ₀={cfg['theta0']:.1f}）的 Monte Carlo 模拟实验，对比四类估计量的抽样分布。结果表明，Naive OLS 因线性误设出现正向偏误（均值 2.254），Direct ML 因缺乏正交化产生严重收缩偏误（均值 1.134），无交叉拟合方法受样本内过拟合影响偏误为 −0.360，唯有完整 DML 稳定居中于真值附近（均值 1.997，偏误 −0.003）。",
         # 7
-        "看图 2 和下方汇总表更震撼：前三种不完整做法，在 200 次重复里 95% 置信区间实际覆盖率全都是 0.0%——换言之看似有置信区间实则次次失准！而完整 DML 把 RMSE 从 0.871 降到 0.032，理论 SE (0.033) 与经验 SD (0.032) 高度一致，95% 覆盖率高达 96.5%。",
+        "进一步量化评估四类估计量的点估计精度与置信区间有效性。比较均方根误差（RMSE）及 95% 置信区间经验覆盖率可以发现，前三种方法因系统性偏误远大于标准误，其 95% 置信区间覆盖率全部降至 0.0%；而完整 DML 通过 Neyman 正交化与 5-折交叉拟合协同作用，将 RMSE 从 0.260–0.871 显著降低至 0.032，经验标准差（0.032）与理论三明治标准误（0.033）高度吻合，95% 区间覆盖率达到 96.5%。",
         # 8
-        "把验证好的 DML 搬到 9,915 户真实 401(k) 数据（零缺失值）。图 3 左边展示净金融资产高度右偏且含负债尾部，右边 SMD 图清楚表明 9 个控制变量里有 7 个突破 0.1 平衡警戒线，最严重的年收入、DB 养老金、自有住房、双职工与受教育年限全部指向同一批高阶层家庭。",
+        f"在验证模型有限样本性质之后，本研究转向 1991 年美国人口普查局 SIPP 家庭金融调查数据（N={emp['n']:,}，零缺失值），检验雇主 401(k) 养老金资格对家庭净金融资产的因果效应。数据探索与协变量平衡性诊断显示：有资格家庭（3,682 户）与无资格家庭（6,233 户）净金融资产均值差达 +$19,559，但净资产高度右偏（中位数仅 $1,499），且 9 个控制变量中有 7 个的标准化均值差超过 0.1 平衡警戒线（其中年收入 SMD 高达 +0.637），存在显著的高收入选择偏差，亟需 DML 剥离混杂。",
         # 9
-        "图 4 森林图汇总了传统基准与 4 类不同函数族学习器（Lasso、Ridge、随机森林、HGB）的结果。可以看到传统线性 OLS 偏低 ($5,896)、1:1 PSM 方差大；而 DML-IRM ATE 在 4 种完全不同的机器学习模型下紧凑收敛在 $7,822 到 $8,693，标准误全组最小 ($1,142–$1,250)，HGB ATT 达 $11,436，证明 401(k) 确有显著净储蓄创造效应。",
+        "针对 401(k) 资格对家庭净金融资产的平均处理效应，本研究在同一 9 维协变量下对比传统计量基准与四类机器学习器（Lasso、Ridge、Random Forest 与 HistGradientBoosting）的 DML-PLR 及 DML-IRM 估计结果。实证发现：线性 OLS 低估效应至 +$5,896，1:1 PSM 的 ATT 标准误达 $3,026；而 DML-IRM 的 ATE 估计在四类不同函数族学习器下紧凑收敛于 +$7,822 至 +$8,693，且标准误显著降至 $1,142–$1,250，HGB 下的 ATT 达到 +$11,436，证实了 401(k) 对净储蓄的正向因果效应。",
         # 10
-        "做因果实证必须排查假设与敏感性（图 5）：交叉拟合倾向得分重叠良好（5%–95% 分位 0.054–0.707），满足正性假设；针对学术界争议的个人退休账户 pira，剔除它只用 8 特征重估 HGB IRM-ATE 为 $8,923，与基准 $8,693 高度一致。进一步用资格 e401 作为实际参与 p401（合格参与率 70.45%）的工具变量，IIVM 估得实际参与者的局部平均效应 LATE 高达 $12,107！",
+        "为检验实证结论的识别假设与稳健性，本研究开展了三项检验：第一，HGB 交叉拟合倾向得分分布的 5%–95% 分位为 [0.054, 0.707]，处置组与对照组重叠充分，满足正性假设；第二，针对潜在内生特征个人退休账户 pira，剔除后以 8 个协变量重跑 HGB，得到 DML-IRM ATE 为 +$8,923（SE $1,312），与全变量基准 +$8,693 高度一致；第三，以雇主资格 e401 作为实际参与 p401（合格参与率 70.45%）的工具变量，采用 DML-IIVM 估得依从者的局部平均处理效应 LATE 为 +$12,107（SE $1,800）。",
         # 11
-        "商业应用最关心的客群分化来了（图 6）：基于交叉拟合正交伪结果算出的收入四分位 GATE 显示，Q4 高收入组单户净增量最大（+$20,588），但若除以各组中位年收入，Q1 低收入组（+$4,945）的财富撬动率高达年收入的 36.6%（p<0.001），反而是 Q2 中低收入组置信区间跨过零！",
+        "为进一步考察 401(k) 净储蓄效应在不同收入群体间的异质性特征，本研究基于 HGB DML-IRM 构造的交叉拟合正交伪结果 φ̂ᵢ，按家庭年收入四分位计算群体平均处理效应（GATE）。结果显示出显著的双极分化特征：从绝对美元增量看，高收入组 Q4 达到 +$20,588（SE $4,283）；而从相对于组内中位年收入的财富撬动比例看，低收入组 Q1 虽绝对增量为 +$4,945，却相当于其中位年收入的 36.6%（p<0.001），而中低收入组 Q2 的置信区间跨过零点。",
         # 12
-        "这两组数字对商业机构和公共政策指向截然不同的落地策略：养老金资管与商业银行应把 Q4 高净值客群的企业年金转化作为核心 AUM 增长池，并为受房贷挤压的 Q2 夹心层设计更灵活的应急机制；而普惠金融与财税政策不能只看绝对美元数，Q1 群体 36.6% 的撬动率证明“默认自动加入 + 雇主配比”能真正帮低收入家庭攒下第一桶长期资产。",
+        "综合模拟与实证结果，可以从模型性能与实证应用两个层面总结结论。就模型性能而言：DML 有效消除了正则化偏误与过拟合偏误，将模拟覆盖率恢复至 96.5% 并将 RMSE 降至 0.032；在 401(k) 实证中实现跨四类异质学习器的高度稳健收敛，标准误明显低于传统 OLS 与 PSM，并可统一拓展至工具变量 IIVM 与 GATE 分析。就实证与决策启示而言：401(k) 确有显著净新增储蓄效应；金融机构可聚焦 Q4 群体扩大长期管理资产规模，而普惠政策对 Q1 群体具有显著储蓄杠杆作用。",
         # 13
-        "同样要诚实交代证据边界：DML 只能消除“可观测特征 X”里的非线性混杂，无法凭空抹掉未记录的个人储蓄偏好；另外还需防范极端倾向得分导致的逆概率加权方差膨胀，以及 1991 年截面历史数据向当下中国个人养老金推广时的制度差异。未来可继续接入 Causal Forest 做个体定价树或混淆敏感性边界。",
+        "同时需要明确模型的统计适用边界与后续延伸方向。在假设边界上：DML 严格依赖条件可忽略性假设（Unconfoundedness），无法直接消除未观测的个人主观储蓄偏好；在极端倾向得分趋近 0 或 1 的不平衡样本下逆概率权重易放大方差；扰动学习器亦需满足 o(n^(-1/4)) 收敛速率条件，且 1991 年截面数据外推需结合当代制度背景审慎评估。未来可进一步融合面板双重差分（DID-DML）、Causal Forest 个体化条件效应树及遗漏变量混淆强度敏感性边界。",
         # 14
-        "最后 3 分钟拓展，每人 1 分钟。我（陈霖）结合 Trexquant 美股多因子和上海 AI 实验室 Agent RL 研究：在多因子里用 DML 扣掉市值与行业非线性混杂，能更干净地验证新信号的真实增量 Alpha；在 Agent RL 里，正交得分能帮我们在高维上下文做无偏离线回报归因。接下来请组员 B、C 分享（现场替换为各自实习场景）。",
+        "最后进入每人 1 分钟的模型拓展应用阐述。结合我在量化多因子研究与大模型 Agent 强化学习中的实践，DML 可直接用于剥离非线性市值、波动率与行业暴露混杂以检验新因子的真实增量 Alpha，以及在高维状态空间中对策略改进进行双稳健反事实回报归因。接下来请另外两位组员结合各自实习或研究场景依次介绍模型应用价值。",
         # 15
-        "以上是 Chernozhukov 等 (2018) 及相关经典文献索引（已核验准确卷期页码），右侧准备了四个我们思考最深的 Q&A 问题，欢迎冯项楠老师、吴尚老师和同学们批评指正！",
+        "以上为本研究依托的核心文献索引，以及围绕 DML 与 PSM 本质差异、无交叉拟合过拟合机制、多学习器选择逻辑与未观测混杂检验准备的四项核心 Q&A 议题，敬请各位老师和同学批评指正！",
     ]
 
     slides: List[str] = []
@@ -111,249 +597,224 @@ def main() -> None:
     slides.append(
         f'<section class="slide cover" data-notes="{html.escape(notes_list[0], quote=True)}">'
         '<div class="cover-top">'
-        '<span>复旦大学管理学院 · 数据科学与商务分析项目（DSBA 2026 秋）</span>'
-        '<span class="cover-pill">版本二｜课堂未讲授前沿方法：Chernozhukov et al. (2018)</span>'
+        '<span>复旦大学管理学院 · 数据科学与商务分析（DSBA）</span>'
+        '<span class="cover-pill">Chernozhukov et al. (2018) · 高维因果推断</span>'
         '</div>'
         '<div class="cover-main">'
-        '<div class="cover-kicker">《现代统计模型及应用》课程大作业汇报 · 授课教师：冯项楠、吴尚</div>'
-        '<h1 class="cover-title">双重机器学习（DML）与高维因果推断：<br>Monte Carlo 模拟验证及 401(k) 养老金实证</h1>'
-        f'<p class="cover-sub">从讲义 1–3 线性回归与倾向得分匹配出发，用 Neyman 正交化＋交叉拟合驯服机器学习偏误；B={cfg["B"]} 次模拟验证理论有效性，并落地 {emp["n"]:,} 户美国家庭养老金净储蓄因果与客群异质性评估。</p>'
+        '<div class="cover-kicker">《现代统计模型及应用》课程大作业汇报</div>'
+        '<h1 class="cover-title">双重机器学习（DML）与高维因果推断：<br>理论原理、模拟验证与 401(k) 实证研究</h1>'
+        f'<p class="cover-sub">针对高维非线性混杂下传统参数回归误设与直接机器学习推断失效的难题，系统阐述 Neyman 正交化与 K-折交叉拟合理论；通过 B={cfg["B"]} 次 Monte Carlo 模拟验证有限样本性能，并应用于 {emp["n"]:,} 户美国家庭 401(k) 养老金净储蓄因果效应评估。</p>'
         '<div class="cover-kpis">'
         '<div class="cover-kpi">'
-        f'<div class="val">{sim[3]["coverage_95_pct"]:.1f}% vs 0.0%</div>'
-        '<div class="lbl">200 次模拟 95% 区间覆盖率</div>'
-        f'<div class="desc">完整 DML 均值 {sim[3]["mean_est"]:.3f}（真值 2.0, RMSE {sim[3]["rmse"]:.3f}），OLS/非正交/无交叉拟合覆盖率全部崩为 0%</div>'
+        f'<div class="val">{sim[3]["coverage_95_pct"]:.1f}% vs. 0.0%</div>'
+        '<div class="lbl">模拟 95% 置信区间覆盖率</div>'
+        f'<div class="desc">完整 DML 均值为 {sim[3]["mean_est"]:.3f}（真值 2.0，RMSE {sim[3]["rmse"]:.3f}），其余三种方法覆盖率均为 0.0%</div>'
         '</div>'
         '<div class="cover-kpi">'
-        f'<div class="val">+${irm["HistGradientBoosting"]["ATE"]["est"]:,.0f} (LATE +${late["est"]:,.0f})</div>'
-        '<div class="lbl">401(k) 净金融资产因果增量</div>'
-        f'<div class="desc">剥离收入 SMD (+0.637) 等混杂后，4 种学习器 IRM-ATE 收敛于 $7,822–$8,693，远低于表面 +${base["naive_diff"]["est"]:,.0f}</div>'
+        f'<div class="val">+$7,822 ~ +${irm["HistGradientBoosting"]["ATE"]["est"]:,.0f}</div>'
+        '<div class="lbl">四类学习器 IRM-ATE 稳健收敛</div>'
+        f'<div class="desc">标准误降至 $1,142–$1,250；以 e401 为工具变量测得实际参与 LATE 达 +${late["est"]:,.0f}</div>'
         '</div>'
         '<div class="cover-kpi">'
         f'<div class="val">Q4 +${gates[3]["gate"]:,.0f} ｜ Q1 {gates[0]["effect_to_income_pct"]:.1f}%</div>'
         '<div class="lbl">收入四分位异质性（GATE）</div>'
-        f'<div class="desc">高收入绝对增量最大，而低收入组（+${gates[0]["gate"]:,.0f}）财富撬动率占中位年收 36.6%（p&lt;0.001）</div>'
+        f'<div class="desc">高收入组绝对增量最大，低收入组（+${gates[0]["gate"]:,.0f}）占其中位年收达 36.6%（p&lt;0.001）</div>'
         '</div>'
         '</div>'
         '</div>'
         '<div class="cover-bottom">'
-        '<span>汇报结构：12 分钟模拟与实证汇报（Slide 1–13）＋ 3 分钟每人 1 分钟拓展（Slide 14）＋ Q&amp;A</span>'
+        '<span>汇报框架：模型介绍 → 模拟分析 → 研究背景与数据 → 实证分析 → 结论与拓展（12+3 分钟）</span>'
         '<span>小组成员：陈霖、组员 B、组员 C</span>'
         '</div>'
         '</section>'
     )
 
-    # Slide 2: Business Problem & Selection Bias
+    # Slide 2: Literature Review & Method Positioning
     s2_body = (
+        '<div class="lead-banner">'
+        '<strong>方法论演进脉络：</strong>高维现代数据环境下，因果推断需在“控制高维非线性混杂”与“保持 √n 渐近有效推断”之间取得平衡。双重机器学习（DML）综合了半参数正交得分、双稳健估计与高维机器学习正则化理论，具体发展定位与方法对比如下：'
+        '</div>'
         '<div class="grid-4">'
-        f'<div class="kpi" style="border-top-color:#B91C1C;"><div class="v" style="color:#B91C1C;">+${base["naive_diff"]["est"]:,.0f}</div><div class="l">表面净金融资产差</div><div class="s">有资格 $30.3k vs 无资格 $10.8k</div></div>'
-        f'<div class="kpi"><div class="v">{emp["n"]:,} 户</div><div class="l">1991 SIPP 真实家庭</div><div class="s">合格 {emp["treated_e401"]:,} 户 · 对照 {emp["control_e401"]:,} 户</div></div>'
-        '<div class="kpi" style="border-top-color:#D97706;"><div class="v" style="color:#B45309;">+0.637</div><div class="l">年收入选择偏差 SMD</div><div class="s">9 个特征中 7 个 |SMD| &gt; 0.1</div></div>'
-        f'<div class="kpi" style="border-top-color:#0E7490;"><div class="v" style="color:#0E7490;">{emp["compliers_p401_given_e401"]*100:.2f}%</div><div class="l">合格家庭实际参与率</div><div class="s">支持工具变量 IIVM LATE 识别</div></div>'
+        '<div class="card blue"><div class="card-hd">1. 潜在结果与匹配</div><p class="p-text compact">Neyman (1923)、Rubin (1974) 与 Rosenbaum &amp; Rubin (1983) 奠定条件可忽略性与倾向得分匹配理论基础。</p></div>'
+        '<div class="card blue"><div class="card-hd">2. 半参数残差化</div><p class="p-text compact">Robinson (1988) 提出部分线性模型（PLR）去残差回归思想，在低维非参数场景实现 √n-一致估计。</p></div>'
+        '<div class="card blue"><div class="card-hd">3. 双稳健 AIPW</div><p class="p-text compact">Robins 等 (1994) 证明联合结果回归与倾向得分加权可提升一致性鲁棒性，降低模型误设风险。</p></div>'
+        '<div class="card teal"><div class="card-hd">4. 高维去偏 DML</div><p class="p-text compact">Belloni 等 (2014) 与 Chernozhukov 等 (2018) 引入 Neyman 正交化与交叉拟合，打通任意机器学习因果推断。</p></div>'
         '</div>'
-        '<div class="grid-2" style="flex:1;">'
-        '<div class="card blue">'
-        '<div class="card-hd">商业与政策核心争议：净新增储蓄还是“资产搬家”？</div>'
-        '<ul class="ul">'
-        '<li><span class="hl">政策与商业痛点</span>：无论是政府推行税收递延养老金，还是银行推广个人养老金账户，都需要回答：补贴究竟创造出了<span class="hl-teal">净新增储蓄</span>，还是只诱导本来就会理财的家庭把原有存款转进免税壳里（Crowding-out / 挤出效应）？</li>'
-        '<li><span class="hl">严重的富人自选择偏差</span>：雇主是否提供 401(k) 高度依赖于公司规模与薪酬水平——高收入（SMD +0.637）、有固定收益养老金（+0.521）、自有住房（+0.363）、双职工（+0.341）的家庭更常进入提供 401(k) 的企业。</li>'
-        '<li><span class="hl">直接对比必错</span>：表面多出的 +$19,559 混杂了大量初始财富能力差异，必须彻底剥离这些多维社会经济特征。</li>'
-        '</ul>'
-        '</div>'
-        '<div class="card">'
-        '<div class="card-hd">混杂偏误因果路径图（为什么必须精细控制高维特征 X）</div>'
-        '<svg viewBox="0 0 540 220" style="width:100%;height:208px;">'
-        '<rect x="18" y="16" width="210" height="184" rx="10" fill="#FFFBEB" stroke="#D97706" stroke-width="1.6"/>'
-        '<text x="123" y="42" text-anchor="middle" fill="#92400E" font-size="13.5" font-weight="700">9 维家庭混杂特征 X</text>'
-        '<text x="123" y="68" text-anchor="middle" fill="#334155" font-size="12">• 家庭年收入 inc (SMD +0.637)</text>'
-        '<text x="123" y="90" text-anchor="middle" fill="#334155" font-size="12">• 固定收益养老金 db (+0.521)</text>'
-        '<text x="123" y="112" text-anchor="middle" fill="#334155" font-size="12">• 自有住房 hown (+0.363)</text>'
-        '<text x="123" y="134" text-anchor="middle" fill="#334155" font-size="12">• 双职工 twoearn (+0.341)</text>'
-        '<text x="123" y="156" text-anchor="middle" fill="#334155" font-size="12">• 学历 educ / 年龄 age / 婚姻</text>'
-        '<text x="123" y="180" text-anchor="middle" fill="#B45309" font-size="11.5" font-weight="600">（与资产呈强非线性/交互关系）</text>'
-        '<line x1="228" y1="68" x2="318" y2="54" stroke="#B91C1C" stroke-width="2.2"/>'
-        '<polygon points="322,53 311,49 313,59" fill="#B91C1C"/>'
-        '<line x1="228" y1="145" x2="318" y2="162" stroke="#B91C1C" stroke-width="2.2"/>'
-        '<polygon points="322,163 313,157 311,167" fill="#B91C1C"/>'
-        '<rect x="326" y="24" width="194" height="56" rx="8" fill="#0A365C"/>'
-        '<text x="423" y="48" text-anchor="middle" fill="#FFFFFF" font-size="13" font-weight="700">处置 D：401(k) 资格 e401</text>'
-        '<text x="423" y="66" text-anchor="middle" fill="#CBD5E1" font-size="11">m₀(X) 倾向得分受高收入主导</text>'
-        '<rect x="326" y="138" width="194" height="58" rx="8" fill="#0E7490"/>'
-        '<text x="423" y="162" text-anchor="middle" fill="#FFFFFF" font-size="13" font-weight="700">结果 Y：净金融资产 net_tfa</text>'
-        '<text x="423" y="180" text-anchor="middle" fill="#E0F2FE" font-size="11">g₀(X) 随收入呈陡峭非线性增长</text>'
-        '<line x1="423" y1="80" x2="423" y2="134" stroke="#0A365C" stroke-width="3"/>'
-        '<polygon points="423,138 418,128 428,128" fill="#0A365C"/>'
-        '<rect x="430" y="96" width="98" height="26" rx="5" fill="#E0F2FE" stroke="#0E7490"/>'
-        '<text x="479" y="113" text-anchor="middle" fill="#0A365C" font-size="12" font-weight="700">真实因果 θ₀</text>'
-        '</svg>'
-        '</div>'
-        '</div>'
-    )
-    slides.append(wrap_slide(2, 0, "一、研究背景与商业问题：401(k) 究竟带来多少净新增储蓄？",
-                           "表面 +$19,559 资产差距里混入严重高收入选择偏差，剥离非线性混杂后才能见真章",
-                           s2_body, notes_list[1]))
-
-    # Slide 3: Why Beyond Course Methods
-    s3_body = (
-        '<table class="tbl">'
-        '<thead><tr><th>因果估计方法</th><th>课程定位</th><th>对高维非线性混杂处理</th><th>置信区间有效性</th><th class="num-col">401(k) 基准结果 (SE)</th></tr></thead>'
+        '<table class="tbl" style="font-size:14px;">'
+        '<thead><tr><th>因果估计方法</th><th>核心思想与参数设定</th><th>非线性与高维适应性</th><th>渐近推断性质</th><th class="num-col">核心优势与局限</th></tr></thead>'
         '<tbody>'
-        f'<tr><td>线性 OLS 控制（讲义 2.2）</td><td>课堂讲授基础</td><td>仅线性可加，拟合不了高收入财富弯度</td><td>函数误设时严重有偏</td><td class="num-col">+${base["linear_ols"]["est"]:,.0f} (${base["linear_ols"]["se"]:,.0f})</td></tr>'
-        f'<tr><td>二次多项式 OLS</td><td>经典参数拓展</td><td>手写交叉/平方项，高维时维度爆炸过拟合</td><td>高维下方差膨胀</td><td class="num-col">+${base["poly2_ols"]["est"]:,.0f} (${base["poly2_ols"]["se"]:,.0f})</td></tr>'
-        f'<tr><td>PSM 1:1 倾向得分匹配（讲义 2.3）</td><td>课堂讲授核心</td><td>依赖参数 Logit 设定，丢弃未匹配对照组</td><td>Bootstrap 较慢、ATT 方差翻倍</td><td class="num-col">ATE +${base["psm"]["ATE"]["est"]:,.0f} / ATT SE ${base["psm"]["ATT"]["se"]:,.0f}</td></tr>'
-        '<tr><td>直接机器学习 Plug-in（不推荐）</td><td>黑箱预测直代</td><td>擅长高维非线性与交互，但有正则化收缩</td><td class="hl-red">95% CI 覆盖率跌至 0%</td><td class="num-col hl-red">模拟严重偏误（−0.866）</td></tr>'
-        f'<tr class="hl-row"><td>双重机器学习 DML (Chernozhukov 2018)</td><td>前沿未讲授方法</td><td>任意 ML（Lasso/Ridge/RF/GBDT）自由拟合</td><td>√n 正态、模拟覆盖率 96.5%</td><td class="num-col">IRM ATE +${irm["HistGradientBoosting"]["ATE"]["est"]:,.0f} (${irm["HistGradientBoosting"]["ATE"]["se"]:,.0f})</td></tr>'
+        '<tr><td style="padding:7px 9px;">线性 OLS 回归</td><td style="padding:7px 9px;">假定协变量 X 对 Y 线性可加</td><td style="padding:7px 9px;">难以捕捉高阶非线性与交互项</td><td style="padding:7px 9px;">函数误设时存在系统偏误</td><td class="num-col" style="padding:7px 9px;">结构透明，但易低估或扭曲非线性混杂</td></tr>'
+        '<tr><td style="padding:7px 9px;">二次多项式 OLS</td><td style="padding:7px 9px;">手工构造 X 的平方与交叉项</td><td style="padding:7px 9px;">高维下特征维数呈 O(p²) 膨胀</td><td style="padding:7px 9px;">过拟合导致方差显著放大</td><td class="num-col" style="padding:7px 9px;">依赖人工先验设定，外推稳定性较弱</td></tr>'
+        '<tr><td style="padding:7px 9px;">PSM 1:1 倾向得分匹配</td><td style="padding:7px 9px;">基于 Logit 倾向得分近邻配对</td><td style="padding:7px 9px;">受限于参数化倾向得分模型</td><td style="padding:7px 9px;">Bootstrap 推断，丢弃未匹配样本</td><td class="num-col" style="padding:7px 9px;">匹配直观，但 ATT 估计方差偏高</td></tr>'
+        '<tr><td style="padding:7px 9px;">直接 ML 代入估计</td><td style="padding:7px 9px;">仅对结果 Y 用树/正则回归去趋势</td><td style="padding:7px 9px;">擅长拟合高维非线性特征交互</td><td class="hl-red" style="padding:7px 9px;">一阶收缩偏误发散，CI 覆盖率崩溃</td><td class="num-col hl-red" style="padding:7px 9px;">预测精度高，但不可直接用于因果推断</td></tr>'
+        '<tr class="hl-row"><td style="padding:7px 9px;">双重机器学习 (DML)</td><td style="padding:7px 9px;">Neyman 正交化 ＋ K-折交叉拟合</td><td style="padding:7px 9px;">兼容 Lasso/Ridge/RF/GBDT 任意模型</td><td style="padding:7px 9px;">在 o(n⁻¹/⁴) 速率下恢复 √n 渐近正态</td><td class="num-col" style="padding:7px 9px;">兼具非线性拟合能力与合法置信区间</td></tr>'
         '</tbody>'
         '</table>'
-        '<div class="grid-3" style="flex:1;">'
-        '<div class="card red">'
-        '<div class="card-hd">困境一：讲义线性 OLS 被“掰弯”</div>'
-        '<ul class="ul">'
-        '<li>家庭净金融资产随年收入并非直线上升，高收入组储蓄率呈指数级爬坡。</li>'
-        f'<li>强行用一条直线控制 X，会把高收入斜率拟合错位，反过来把 401(k) 因果效应一路压低到 <span class="hl-red">+${base["linear_ols"]["est"]:,.0f}</span>。</li>'
-        '</ul>'
-        '</div>'
-        '<div class="card amber">'
-        '<div class="card-hd">困境二：1:1 PSM 丢失对照样本信息</div>'
-        '<ul class="ul">'
-        '<li>一对一最近邻匹配只保留匹配到的对照组，虽有 99.5% 共同支撑，但信息利用不充分。</li>'
-        f'<li>实证中 PSM 的 ATT 标准误飙升至 <span class="hl-amber">${base["psm"]["ATT"]["se"]:,.0f}</span>，几乎是 DML-IRM（${irm["HistGradientBoosting"]["ATT"]["se"]:,.0f}）的两倍。</li>'
-        '</ul>'
-        '</div>'
-        '<div class="card blue">'
-        '<div class="card-hd">破局之道：让 ML 安全走进因果推断</div>'
-        '<ul class="ul">'
-        '<li>现代机器学习最擅长自动学出复杂 g₀(X) 和 m₀(X)，无需人工猜多项式形式。</li>'
-        '<li>但要消除机器学习带来的正则化偏差与过拟合偏差，必须引入 DML 的<span class="hl-teal">双支柱机制</span>。</li>'
-        '</ul>'
-        '</div>'
-        '</div>'
     )
-    slides.append(wrap_slide(3, 0, "二、衔接讲义 1–3：为什么需要超越线性 OLS 与倾向得分匹配？",
-                           "低维线性被财富曲线误设、1:1 匹配方差大，而直接套用机器学习则会彻底毁掉置信区间",
-                           s3_body, notes_list[2]))
+    slides.append(wrap_slide(2, 0, "一、模型背景与文献综述：高维因果推断的演进脉络",
+                           "从传统半参数回归、双稳健得分到高维机器学习正交化，DML 破解高维混杂与推断有效性两难",
+                           s2_body, notes_list[1]))
 
-    # Slide 4: Math Deconstruction I
-    s4_body = (
+    # Slide 3: Model Principle I - PLR & Two Biases
+    s3_body = (
+        '<div class="card blue" style="padding:9px 14px;">'
+        '<div class="card-hd">基础设定：Robinson (1988) 部分线性因果模型（PLR）与条件外生性</div>'
+        '<div class="row" style="align-items:center;">'
+        '<div class="math-box" style="flex:1.15;">Y = θ₀ D + g₀(X) + ζ，&nbsp; E[ζ | X, D] = 0 &nbsp;&nbsp;|&nbsp;&nbsp; D = m₀(X) + V，&nbsp; E[V | X] = 0</div>'
+        '<p class="p-text" style="flex:1;font-size:14.2px;">其中 <span class="hl">θ₀</span> 为待估计的结构因果效应，<span class="hl">g₀(X)</span> 与 <span class="hl">m₀(X)</span> 为高维未知非线性扰动函数（Nuisance Functions），在维数较高时需借助机器学习估计。</p>'
+        '</div>'
+        '</div>'
         '<div class="grid-2" style="flex:1;">'
-        '<div class="card red">'
-        '<div class="card-hd">为什么直接套用机器学习会“覆盖率归零”？</div>'
-        '<p class="p-text">在部分线性回归（PLR, Robinson 1988）中：Y = θ₀ D + g₀(X) + ζ，D = m₀(X) + V。</p>'
-        '<ul class="ul">'
-        '<li><span class="hl-red">陷阱 1：正则化偏差（Regularization Bias）</span><br>若只用森林/Lasso 拟合 <span class="hat">g</span>(X) 后直接拿 (Y − <span class="hat">g</span>(X)) 对 D 回归，由于正则化惩罚使 <span class="hat">g</span> 收敛速度仅 O<sub>p</sub>(n<sup>−1/4</sup>)，一阶误差乘上 √n 会直接发散：</li>'
-        '</ul>'
-        '<div class="math-box" style="font-size:13px;border-left-color:#B91C1C;">'
+        '<div class="card red" style="padding:12px 16px;gap:8px;">'
+        '<div class="card-hd" style="font-size:17px;">偏误机制一：正则化偏误（Regularization Bias）</div>'
+        '<p class="p-text" style="font-size:15px;line-height:1.5;">若仅用随机森林或 Lasso 拟合 <span class="hat">g</span>(X) 并直接将残差 (Y − <span class="hat">g</span>(X)) 对 D 回归，为控制方差引入的正则化惩罚会使 <span class="hat">g</span> 的收敛速度慢于 √n（通常仅达 O<sub>p</sub>(n<sup>−1/4</sup>)）：</p>'
+        '<div class="math-box" style="border-left-color:#B91C1C;font-size:15.5px;padding:9px 12px;">'
         '√n (<span class="hat">θ</span><sub>plug</sub> − θ₀) ≈ <span class="frac"><span class="num">1</span><span class="den">√n</span></span> ∑ m₀(X<sub>i</sub>)(g₀(X<sub>i</sub>) − <span class="hat">g</span>(X<sub>i</sub>)) ≈ √n · n<sup>−1/4</sup> = n<sup>+1/4</sup> → ∞'
         '</div>'
-        '<ul class="ul">'
-        '<li><span class="hl-red">陷阱 2：过拟合偏差（Overfitting Bias）</span><br>即便同时残差化，若在全样本上直接用深层树训练并算样本内残差，模型记忆噪声会导致两残差出现伪相关，依然有偏。</li>'
+        '<ul class="ul" style="font-size:15px;line-height:1.5;gap:8px;">'
+        '<li><span class="hl-red">一阶泄露效应</span>：由于协变量同样影响处置 D（m₀(X) ≠ 0），扰动函数的一阶估计误差会乘以 √n 直接穿透进 <span class="hat">θ</span><sub>plug</sub>。</li>'
+        '<li><span class="hl-red">推断失效后果</span>：点估计产生系统性偏误，传统标准误严重低估不确定性，导致 95% 置信区间覆盖率坍塌至零。</li>'
         '</ul>'
         '</div>'
-        '<div class="card blue">'
-        '<div class="card-hd">支柱一：Neyman 正交化（一阶敏感度归零）</div>'
-        '<p class="p-text">不直接估 g₀(X)，而是同时预测结果均值 ℓ(X)=E[Y|X] 与处置倾向 m(X)=E[D|X]，构造得分函数：</p>'
-        '<div class="math-box" style="font-size:13.5px;">'
-        'ψ(W; θ, ℓ, m) = (Y − ℓ(X) − θ(D − m(X))) · (D − m(X))'
+        '<div class="card amber" style="padding:12px 16px;gap:8px;">'
+        '<div class="card-hd" style="font-size:17px;">偏误机制二：过拟合偏误（Overfitting Bias）</div>'
+        '<p class="p-text" style="font-size:15px;line-height:1.5;">即便同时对结果 Y 与处置 D 做残差化，若在<strong>同一全样本</strong>上直接训练高复杂度机器学习器（如无深度约束的深层随机森林）并评估样本内残差：</p>'
+        '<div class="math-box" style="border-left-color:#D97706;font-size:15.5px;padding:9px 12px;">'
+        'E<sub>n</sub>[<span class="hat">v</span><sub>in</sub> · (<span class="hat">u</span><sub>in</sub> − θ₀<span class="hat">v</span><sub>in</sub>)] ≠ 0 &nbsp;&nbsp;(模型同时记忆扰动噪声 ζ<sub>i</sub> 与 V<sub>i</sub>)'
         '</div>'
-        '<ul class="ul">'
-        '<li><span class="hl">解样本正交矩 E<sub>n</sub>[ψ]=0 得</span>：<span class="hat">θ</span><sub>DML</sub> = (<span class="hat">v</span><sup>T</sup> <span class="hat">u</span>) / (<span class="hat">v</span><sup>T</sup> <span class="hat">v</span>)，其中 u = Y − <span class="hat">ℓ</span>(X), v = D − <span class="hat">m</span>(X)。</li>'
-        '<li><span class="hl">核心性质（Gateaux 导数为零）</span>：在真值处，∂<sub>η</sub> E[ψ(W; θ₀, η₀)] = 0——也就是说，<span class="hl-teal">扰动预测器的微小一阶误差不再直接穿透到 θ 上！</span></li>'
+        '<ul class="ul" style="font-size:15px;line-height:1.5;gap:8px;">'
+        '<li><span class="hl-amber">样本内伪相关</span>：高自由度学习器过度拟合样本随机噪声，导致回归残差与处置残差之间产生虚假相关性。</li>'
+        '<li><span class="hl-amber">破坏无偏条件</span>：经验正交矩偏离理论零均值条件，同样引起显著有限样本偏误并破坏渐近正态分布。</li>'
         '</ul>'
-        '</div>'
-        '</div>'
-        '<div class="card dark" style="padding:11px 16px;">'
-        '<div class="card-hd">误差收敛阶数的奇迹：为什么机器学习只要 n<sup>−1/4</sup> 精度就能保证 √n 因果推断？</div>'
-        '<div class="row" style="align-items:center;">'
-        '<div style="font-size:23px;font-weight:700;color:#FBBF24;min-width:440px;">||<span class="hat">ℓ</span> − ℓ₀||₂ × ||<span class="hat">m</span> − m₀||₂ = O<sub>p</sub>(n<sup>−1/4</sup>) × O<sub>p</sub>(n<sup>−1/4</sup>) = o<sub>p</sub>(n<sup>−1/2</sup>)</div>'
-        '<p class="p-text" style="flex:1;">由于一阶项被 Neyman 正交性消去，主导偏差变为两个预测器误差的<span style="color:#7DD3FC;font-weight:700;">乘积（及 ||<span class="hat">m</span>−m₀||₂²）</span>。常规非参数学习器只要满足略快于 n<sup>−1/4</sup> 的收敛速率，乘积就快于 n<sup>−1/2</sup>，从而令 √n(<span class="hat">θ</span><sub>DML</sub> − θ₀) 渐近正态，三明治标准误完全合法！</p>'
         '</div>'
         '</div>'
     )
-    slides.append(wrap_slide(4, 1, "三、模型解构（上）：机器学习的两类偏差与 Neyman 正交化",
-                           "单独预测会陷入 n⁻¹/⁴ 正则化偏误，正交得分把偏差压缩为两预测器误差乘积 n⁻¹/⁴×n⁻¹/⁴ = o(n⁻¹/²)",
+    slides.append(wrap_slide(3, 0, "二、模型原理（一）：部分线性框架与机器学习的两类偏误",
+                           "直接套用机器学习会受到 n⁻¹/⁴ 正则化偏误与样本内过拟合偏误双重侵蚀，导致统计推断失效",
+                           s3_body, notes_list[2]))
+
+    # Slide 4: Model Principle II - Neyman Orthogonality
+    s4_body = (
+        '<div class="grid-2" style="flex:1;">'
+        '<div class="card blue" style="padding:12px 16px;gap:8px;">'
+        '<div class="card-hd" style="font-size:17px;">支柱一：Neyman 正交得分构造（一阶敏感度归零）</div>'
+        '<p class="p-text" style="font-size:15px;line-height:1.5;">不直接估计结构函数 g₀(X)，而是同时对条件期望 <span class="hl">ℓ(X) = E[Y | X]</span> 与处置倾向 <span class="hl">m(X) = E[D | X]</span> 建模，构造去残差正交得分函数：</p>'
+        '<div class="math-box" style="font-size:16px;padding:9px 12px;">'
+        'ψ(W; θ, ℓ, m) = (Y − ℓ(X) − θ(D − m(X))) · (D − m(X))'
+        '</div>'
+        '<ul class="ul" style="font-size:15px;line-height:1.5;gap:8px;">'
+        '<li><span class="hl">正交矩估计量</span>：令样本矩 E<sub>n</sub>[ψ]=0，解得 <span class="hat">θ</span><sub>DML</sub> = (<span class="hat">v</span><sup>T</sup><span class="hat">u</span>) / (<span class="hat">v</span><sup>T</sup><span class="hat">v</span>)，其中 <span style="white-space:nowrap;">u = Y − <span class="hat">ℓ</span>(X)</span>，<span style="white-space:nowrap;">v = D − <span class="hat">m</span>(X)</span>。</li>'
+        '<li><span class="hl">Neyman 正交条件</span>：在真值 η₀=(ℓ₀, m₀) 处 Gateaux 导数为零：<span class="hl-teal">∂<sub>η</sub> E[ψ(W; θ₀, η₀)] = 0</span>，从而消除了扰动估计误差的一阶影响。</li>'
+        '</ul>'
+        '</div>'
+        '<div class="card" style="padding:12px 16px;gap:8px;">'
+        '<div class="card-hd" style="font-size:17px;">渐近理论保证：二阶误差乘积与三明治方差估计</div>'
+        '<ul class="ul" style="font-size:15px;line-height:1.5;gap:8px;">'
+        '<li><span class="hl">为什么只需慢收敛学习器？</span><br>在正交性条件下，一阶扰动偏误严格消失，估计量的主导偏误项转化为两个预测器估计误差的乘积与处置倾向误差平方和。</li>'
+        '<li><span class="hl">√n-一致性与渐近正态定理（Chernozhukov et al., 2018 Thm 3.1）</span><br>在正则条件与交叉拟合下，√n(<span class="hat">θ</span><sub>DML</sub> − θ₀) →<sub>d</sub> N(0, σ²)，渐近方差满足三明治形式：</li>'
+        '</ul>'
+        '<div class="math-box" style="font-size:16px;padding:9px 12px;">'
+        'σ² = J₀<sup>−1</sup> E[ψ(W; θ₀, η₀)²] (J₀<sup>−1</sup>)<sup>T</sup>，&nbsp; J₀ = −E[(D − m₀(X))²]'
+        '</div>'
+        '<p class="p-text" style="font-size:14.8px;line-height:1.48;">该渐近分布性质使得传统 Eicker-Huber-White 异方差稳健标准误与 95% 置信区间重新具备严格统计合法性。</p>'
+        '</div>'
+        '</div>'
+        '<div class="card dark" style="padding:10px 16px;">'
+        '<div class="card-hd">关键收敛阶数条件：从 O(n⁻¹/⁴) 预测精度到 o(n⁻¹/²) 因果推断</div>'
+        '<div class="row" style="align-items:center;">'
+        '<div style="font-size:24px;font-weight:700;color:#FBBF24;min-width:470px;">||<span class="hat">ℓ</span> − ℓ₀||₂ × ||<span class="hat">m</span> − m₀||₂ = O<sub>p</sub>(n<sup>−1/4</sup>) × O<sub>p</sub>(n<sup>−1/4</sup>) = o<sub>p</sub>(n<sup>−1/2</sup>)</div>'
+        '<p class="p-text compact" style="flex:1;font-size:14px;">只要结果学习器与处置学习器的 L₂ 误差速率略快于 <span style="color:#7DD3FC;font-weight:700;">n<sup>−1/4</sup></span>（如正则稀疏 Lasso、随机森林、梯度提升树或神经网络在各自正则结构下均可满足），二阶误差乘积即快于 n<sup>−1/2</sup>，不会影响主参数的 √n 渐近正态分布。</p>'
+        '</div>'
+        '</div>'
+    )
+    slides.append(wrap_slide(4, 0, "二、模型原理（二）：Neyman 正交化与误差二阶乘积收敛",
+                           "正交得分令一阶导数为零，将主导偏误压缩为两预测器误差乘积 n⁻¹/⁴×n⁻¹/⁴ = o(n⁻¹/²)",
                            s4_body, notes_list[3]))
 
-    # Slide 5: Math Deconstruction II
+    # Slide 5: Model Principle III - Cross-Fitting & Unified Framework
     s5_body = (
-        '<div class="card" style="padding:10px 15px;">'
-        '<div class="card-hd">支柱二：5-折交叉拟合（Cross-Fitting）彻底斩断过拟合相关性（Chernozhukov et al., 2018 Def. 3.3）</div>'
-        '<svg viewBox="0 0 1160 98" style="width:100%;height:94px;">'
-        '<rect x="10" y="14" width="110" height="44" rx="6" fill="#0E7490"/><text x="65" y="34" text-anchor="middle" fill="#FFF" font-size="12" font-weight="700">Fold 1 (验证)</text><text x="65" y="50" text-anchor="middle" fill="#E0F2FE" font-size="10.5">只算折外残差</text>'
-        '<rect x="128" y="14" width="110" height="44" rx="6" fill="#0A365C"/><text x="183" y="34" text-anchor="middle" fill="#FFF" font-size="12" font-weight="700">Fold 2 (训练)</text><text x="183" y="50" text-anchor="middle" fill="#CBD5E1" font-size="10.5">拟合 ℓ⁻¹ 与 m⁻¹</text>'
-        '<rect x="246" y="14" width="110" height="44" rx="6" fill="#0A365C"/><text x="301" y="34" text-anchor="middle" fill="#FFF" font-size="12" font-weight="700">Fold 3 (训练)</text><text x="301" y="50" text-anchor="middle" fill="#CBD5E1" font-size="10.5">拟合 ℓ⁻¹ 与 m⁻¹</text>'
-        '<rect x="364" y="14" width="110" height="44" rx="6" fill="#0A365C"/><text x="419" y="34" text-anchor="middle" fill="#FFF" font-size="12" font-weight="700">Fold 4 (训练)</text><text x="419" y="50" text-anchor="middle" fill="#CBD5E1" font-size="10.5">拟合 ℓ⁻¹ 与 m⁻¹</text>'
-        '<rect x="482" y="14" width="110" height="44" rx="6" fill="#0A365C"/><text x="537" y="34" text-anchor="middle" fill="#FFF" font-size="12" font-weight="700">Fold 5 (训练)</text><text x="537" y="50" text-anchor="middle" fill="#CBD5E1" font-size="10.5">拟合 ℓ⁻¹ 与 m⁻¹</text>'
-        '<rect x="615" y="10" width="535" height="76" rx="8" fill="#F0F6FC" stroke="#0A365C" stroke-width="1.4"/>'
-        '<text x="632" y="32" fill="#0A365C" font-size="12.5" font-weight="700">三项设计保障 100% 样本效率与稳定性：</text>'
-        '<text x="632" y="52" fill="#334155" font-size="11.5">① 轮流把每一折作为验证折（折外预测），最后汇集全部 N 个样本计算正交得分，不浪费样本；</text>'
-        '<text x="632" y="71" fill="#334155" font-size="11.5">② 重复 5 次随机分层切分，点估计取中位数，SE 计入切分间方差 √(s² + (θ_r − θ_med)²)。</text>'
-        '<text x="10" y="79" fill="#0E7490" font-size="11.5" font-weight="600">→ 训练折噪声与验证折正交残差独立，过拟合幽灵通道被彻底切断！</text>'
+        '<div class="card" style="padding:9px 14px;">'
+        '<div class="card-hd">支柱二：K-折交叉拟合（Cross-Fitting）与多次切分聚合（Chernozhukov et al., 2018 Def. 3.3）</div>'
+        '<svg viewBox="0 0 1160 102" style="width:100%;height:96px;">'
+        '<rect x="6" y="10" width="112" height="48" rx="6" fill="#0E7490"/><text x="62" y="31" text-anchor="middle" fill="#FFF" font-size="13.5" font-weight="700">Fold 1 (验证)</text><text x="62" y="49" text-anchor="middle" fill="#E0F2FE" font-size="12">计算折外残差</text>'
+        '<rect x="124" y="10" width="112" height="48" rx="6" fill="#0A365C"/><text x="180" y="31" text-anchor="middle" fill="#FFF" font-size="13.5" font-weight="700">Fold 2 (训练)</text><text x="180" y="49" text-anchor="middle" fill="#CBD5E1" font-size="12">训练 ℓ⁻¹ 与 m⁻¹</text>'
+        '<rect x="242" y="10" width="112" height="48" rx="6" fill="#0A365C"/><text x="298" y="31" text-anchor="middle" fill="#FFF" font-size="13.5" font-weight="700">Fold 3 (训练)</text><text x="298" y="49" text-anchor="middle" fill="#CBD5E1" font-size="12">训练 ℓ⁻¹ 与 m⁻¹</text>'
+        '<rect x="360" y="10" width="112" height="48" rx="6" fill="#0A365C"/><text x="416" y="31" text-anchor="middle" fill="#FFF" font-size="13.5" font-weight="700">Fold 4 (训练)</text><text x="416" y="49" text-anchor="middle" fill="#CBD5E1" font-size="12">训练 ℓ⁻¹ 与 m⁻¹</text>'
+        '<rect x="478" y="10" width="112" height="48" rx="6" fill="#0A365C"/><text x="534" y="31" text-anchor="middle" fill="#FFF" font-size="13.5" font-weight="700">Fold 5 (训练)</text><text x="534" y="49" text-anchor="middle" fill="#CBD5E1" font-size="12">训练 ℓ⁻¹ 与 m⁻¹</text>'
+        '<rect x="608" y="8" width="544" height="84" rx="8" fill="#F0F6FC" stroke="#0A365C" stroke-width="1.4"/>'
+        '<text x="624" y="30" fill="#0A365C" font-size="14" font-weight="700">切断过拟合伪相关并保持 100% 样本效率：</text>'
+        '<text x="624" y="54" fill="#1E293B" font-size="13.2">① 轮流将每一折设为验证折，汇聚全部 N 个折外正交残差统一求解矩方程；</text>'
+        '<text x="624" y="77" fill="#1E293B" font-size="13.2">② 重复 R=5 次随机分层切分，取中位数点估计与调整标准误 √(s²+(θ_r−θ_med)²)。</text>'
+        '<text x="6" y="84" fill="#0E7490" font-size="13.2" font-weight="700">→ 扰动模型训练误差与验证折正交残差条件独立，彻底消除样本内过拟合偏误。</text>'
         '</svg>'
         '</div>'
         '<div class="grid-3" style="flex:1;">'
-        '<div class="card">'
-        '<div class="card-hd">1. PLR 部分线性模型</div>'
-        '<div class="math-box" style="font-size:12.5px;">Y = θ₀ D + g₀(X) + ζ</div>'
-        '<ul class="ul">'
-        '<li>假设不同特征家庭受 401(k) 影响的平均斜率相同（常处理效应）。</li>'
-        '<li>回归器分别拟合 ℓ(X)=E[Y|X] 与 m(X)=E[D|X]。</li>'
-        '<li>结构简洁、方差低，是检查模型稳定性的基准。</li>'
+        '<div class="card" style="padding:12px 15px;gap:8px;">'
+        '<div class="card-hd" style="font-size:16.5px;">1. PLR 部分线性回归模型</div>'
+        '<div class="math-box" style="font-size:15px;">Y = θ₀ D + g₀(X) + ζ</div>'
+        '<ul class="ul" style="font-size:15px;line-height:1.5;gap:8px;">'
+        '<li>假定处置变量对结果的平均因果斜率 θ₀ 为常数。</li>'
+        '<li>分别使用机器学习估计 ℓ(X)=E[Y|X] 与 m(X)=E[D|X]。</li>'
+        '<li>结构简洁、自由度消耗少，适合作为基准稳健性对照。</li>'
         '</ul>'
         '</div>'
-        '<div class="card blue">'
-        '<div class="card-hd">2. IRM 交互回归（允许异质性）</div>'
-        '<div class="math-box" style="font-size:11.8px;">φ<sub>i</sub> = g(1,X)−g(0,X) + D(Y−g(1,X))/m(X) − (1−D)(Y−g(0,X))/(1−m(X))</div>'
-        '<ul class="ul">'
-        '<li>基于双稳健 AIPW 正交得分，不限制 D 与 X 不交互。</li>'
-        '<li>可同时估计总体 ATE、处置组 ATT，并可直接按收入四分位平均 φ<sub>i</sub> 计算群体异质效应 <span class="hl-teal">GATE</span>！</li>'
+        '<div class="card blue" style="padding:12px 15px;gap:8px;">'
+        '<div class="card-hd" style="font-size:16.5px;">2. IRM 交互回归（允许异质性）</div>'
+        '<div class="math-box" style="font-size:13.5px;">φ<sub>i</sub> = g(1,X)−g(0,X) + D(Y−g(1,X))/m(X) − (1−D)(Y−g(0,X))/(1−m(X))</div>'
+        '<ul class="ul" style="font-size:15px;line-height:1.5;gap:8px;">'
+        '<li>基于双稳健 AIPW 得分，允许处置效应随协变量 X 任意变化。</li>'
+        '<li>统一估计 ATE、ATT，且可直接对正交伪结果 <span class="hat">φ</span><sub>i</sub> 分组求均值计算群体异质性效应 <span class="hl-teal">GATE</span>。</li>'
         '</ul>'
         '</div>'
-        '<div class="card teal">'
-        '<div class="card-hd">3. IIVM 工具变量（衔接讲义 1.2.5）</div>'
-        '<div class="math-box" style="font-size:12px;">LATE = E[ITT<sub>Y</sub>] / E[ITT<sub>D</sub>]</div>'
-        '<ul class="ul">'
-        '<li>以雇主资格 e401 为工具变量 Z，以实际参与 p401 为内生处置。</li>'
-        '<li>在非线性控制 X 后，用双稳健正交得分识别依从者（Compliers）的局部平均处理效应。</li>'
+        '<div class="card teal" style="padding:12px 15px;gap:8px;">'
+        '<div class="card-hd" style="font-size:16.5px;">3. IIVM 交互工具变量模型</div>'
+        '<div class="math-box" style="font-size:14.5px;">LATE = E[ITT<sub>Y</sub>] / E[ITT<sub>D</sub>]</div>'
+        '<ul class="ul" style="font-size:15px;line-height:1.5;gap:8px;">'
+        '<li>针对存在不完全服从的内生处置情景，引入合法工具变量 Z。</li>'
+        '<li>控制高维非线性混杂后，通过双稳健得分识别依从群体（Compliers）的局部平均处理效应 LATE。</li>'
         '</ul>'
         '</div>'
         '</div>'
     )
-    slides.append(wrap_slide(5, 1, "三、模型解构（下）：K-折交叉拟合与 PLR / IRM / IIVM 统一框架",
-                           "折外预测斩断过拟合相关性；同时配备同质 PLR、异质双稳健 IRM 与工具变量 IIVM 三套估计框架",
+    slides.append(wrap_slide(5, 0, "二、模型原理（三）：K-折交叉拟合与 PLR / IRM / IIVM 统一框架",
+                           "折外交叉拟合切断过拟合通道，并将同一正交机制拓展至异质性处理效应（IRM）与工具变量（IIVM）",
                            s5_body, notes_list[4]))
 
-    # Slide 6: Simulation Distribution
+    # Slide 6: Simulation Analysis I
     s6_body = (
+        '<div class="lead-banner">'
+        f'<strong>研究问题与方法说明：</strong>针对“高维非线性混杂下不同估计量的偏误机制”问题，本研究构造 B={cfg["B"]} 次重复、n={cfg["n"]}、p={cfg["p"]} 维（真值 θ₀={cfg["theta0"]:.1f}）的 Monte Carlo 模拟实验，对比四类估计量的抽样分布。结果表明，<strong>仅完整 DML 居中无偏</strong>，具体如下：'
+        '</div>'
         '<div class="row" style="flex:1;">'
-        '<div class="fig-box" style="flex:1.85;">'
+        '<div class="fig-box" style="flex:1.62;">'
         '<img src="../outputs/figures/fig1_simulation_bias_distribution.png" alt="图1 模拟抽样分布对比"/>'
         '</div>'
         '<div class="col" style="flex:1;">'
         '<div class="card blue">'
-        '<div class="card-hd">高维非线性模拟 DGP 设定（真值 θ₀ = 2.0）</div>'
-        '<ul class="ul">'
-        f'<li><span class="hl">规模</span>：B = {cfg["B"]} 次重复、n = {cfg["n"]}、p = {cfg["p"]} 维标准正态协变量（其中 14 维为纯干扰噪声）。</li>'
-        '<li><span class="hl">非线性混杂</span>：m₀(X) 与 g₀(X) 均包含 X₁²−1、X₂X₃、X₄²−1、X₅X₆ 等平方与交互项（二阶展开达 230 维特征空间）。</li>'
-        '<li><span class="hl">DML 学习器</span>：二阶展开＋LassoCV 做 5-折交叉拟合。</li>'
+        '<div class="card-hd">数据生成过程（DGP）与模型设定</div>'
+        '<ul class="ul compact">'
+        f'<li><span class="hl">参数规模</span>：X ~ N(0, I₂₀)，其中 6 维为有效混杂因子，14 维为无关噪声变量；真值 θ₀ = {cfg["theta0"]:.1f}。</li>'
+        '<li><span class="hl">非线性函数</span>：m₀(X) 与 g₀(X) 均包含 X₁²−1、X₂X₃、X₄²−1、X₅X₆ 等平方及二阶交互项。</li>'
+        '<li><span class="hl">DML 估计量</span>：二阶多项式（230 维）结合 LassoCV 开展 5-折交叉拟合正交回归。</li>'
         '</ul>'
         '</div>'
         '<div class="card" style="flex:1;">'
-        '<div class="card-hd">四条曲线各自的偏误机制解码</div>'
-        '<ul class="ul">'
-        f'<li><span class="hl">灰线 Naive OLS ({sim[0]["mean_est"]:.3f})</span>：强行用直线拟合二次与交互混杂，残余正向偏误 <span class="hl-red">{sim[0]["bias"]:+.3f}</span>。</li>'
-        f'<li><span class="hl-amber">橙线 Direct ML ({sim[1]["mean_est"]:.3f})</span>：随机森林只去趋势 Y 而未对 D 做正交化，正则化收缩造成严重左偏 <span class="hl-red">{sim[1]["bias"]:+.3f}</span>。</li>'
-        f'<li><span class="hl-red">红线无交叉拟合 ({sim[2]["mean_est"]:.3f})</span>：深层森林样本内过拟合噪声，引发 <span class="hl-red">{sim[2]["bias"]:+.3f}</span> 向下偏误。</li>'
-        f'<li><span class="hl-teal">蓝线完整 DML ({sim[3]["mean_est"]:.3f})</span>：稳稳居中在 θ₀=2.0 虚线上（偏差仅 {sim[3]["bias"]:+.3f}），方差最小！</li>'
+        '<div class="card-hd">四类估计量抽样分布诊断</div>'
+        '<ul class="ul compact">'
+        f'<li><span class="hl">Naive OLS ({sim[0]["mean_est"]:.3f})</span>：线性控制无法逼近二阶交互项，产生显著正向误设偏误 ({sim[0]["bias"]:+.3f})。</li>'
+        f'<li><span class="hl-amber">Direct ML ({sim[1]["mean_est"]:.3f})</span>：随机森林仅拟合 Y 而未对 D 正交化，正则化收缩导致明显左偏 ({sim[1]["bias"]:+.3f})。</li>'
+        f'<li><span class="hl-red">无交叉拟合 ({sim[2]["mean_est"]:.3f})</span>：深层森林样本内残差过拟合噪声，引发 {sim[2]["bias"]:+.3f} 向下偏误。</li>'
+        f'<li><span class="hl-teal">完整 DML ({sim[3]["mean_est"]:.3f})</span>：密度峰值精确分布于 θ₀=2.0 附近（偏误 {sim[3]["bias"]:+.3f}），方差显著收敛。</li>'
         '</ul>'
         '</div>'
         '</div>'
         '</div>'
     )
-    slides.append(wrap_slide(6, 2, "四、模拟验证（上）：非线性高维混杂 DGP 与抽样分布对比",
-                           "200 次重复试验直观复现正则化偏误与过拟合偏误，唯有双支柱协同的完整 DML 居中无偏",
+    slides.append(wrap_slide(6, 1, "三、模拟分析（一）：非线性高维混杂 DGP 与抽样分布对比",
+                           "Monte Carlo 模拟清晰复现线性误设、正则化偏误与过拟合偏误，验证完整 DML 的渐近无偏性",
                            s6_body, notes_list[5]))
 
-    # Slide 7: Simulation Coverage & RMSE
+    # Slide 7: Simulation Analysis II
     rows7 = []
     for r in sim:
         cls = ' class="hl-row"' if "完整 DML" in r["method"] else ""
@@ -367,73 +828,78 @@ def main() -> None:
             f'<td class="num-col">{r["coverage_95_pct"]:.1f}%</td></tr>'
         )
     s7_body = (
-        '<div class="row" style="flex:1.22;">'
-        '<div class="fig-box" style="flex:2.25;">'
+        '<div class="lead-banner">'
+        '<strong>定量评估说明：</strong>为精确衡量不同估计量的点估计精度与置信区间推断有效性，本节汇总 200 次模拟的 RMSE、经验标准差与 95% 区间覆盖率。结果显示，<strong>完整 DML 的 RMSE 降至 0.032 且覆盖率恢复至 96.5%</strong>，具体指标如下：'
+        '</div>'
+        '<div class="row" style="flex:1.15;">'
+        '<div class="fig-box" style="flex:2.05;">'
         '<img src="../outputs/figures/fig2_simulation_coverage_rmse.png" alt="图2 模拟RMSE与95%覆盖率"/>'
         '</div>'
         '<div class="col" style="flex:1;">'
         '<div class="card dark" style="flex:1;">'
-        '<div class="card-hd">推断有效性的试金石</div>'
+        '<div class="card-hd">有限样本统计推断有效性检验</div>'
         f'<div style="font-size:32px;font-weight:700;color:#86EFAC;">{sim[3]["coverage_95_pct"]:.1f}% <span style="font-size:15px;color:#CBD5E1;">vs. 0.0%</span></div>'
-        '<p class="p-text">点估计不准，标准误算得再漂亮也是假的！前三种方法因为系统性偏误远大于标准误，200 次试验里 95% 置信区间居然<span style="color:#FBBF24;font-weight:700;">一次也没盖住真值</span>。</p>'
-        '<p class="p-text">完整 DML 将 RMSE 从 0.871 压低至 <span style="color:#7DD3FC;font-weight:700;">0.032</span>，经验标准差 (0.032) 与三明治理论 SE (0.033) 严丝合缝，覆盖率高达 <span style="color:#86EFAC;font-weight:700;">96.5%</span>。</p>'
+        '<ul class="ul compact">'
+        '<li>前三种残缺方法因系统偏误远超标准误尺度，200 次试验中 95% 置信区间<span style="color:#FBBF24;font-weight:700;">均未能覆盖真值（0.0%）</span>。</li>'
+        f'<li>完整 DML 将 RMSE 从 0.260–0.871 压低至 <span style="color:#7DD3FC;font-weight:700;">{sim[3]["rmse"]:.3f}</span>，经验标准差（{sim[3]["emp_sd"]:.3f}）与理论三明治标准误（{sim[3]["mean_se"]:.3f}）高度吻合。</li>'
+        '</ul>'
         '</div>'
         '</div>'
         '</div>'
         '<table class="tbl">'
-        '<thead><tr><th>模拟估计方法 (B=200, n=1000, p=20, θ₀=2.0)</th><th class="num-col">估计均值</th><th class="num-col">偏差 Bias</th><th class="num-col">经验 SD</th><th class="num-col">平均理论 SE</th><th class="num-col">RMSE</th><th class="num-col">95% 置信区间覆盖率</th></tr></thead>'
+        '<thead><tr><th>模拟估计方法 (B=200, n=1000, p=20, θ₀=2.0)</th><th class="num-col">估计均值</th><th class="num-col">偏误 Bias</th><th class="num-col">经验 SD</th><th class="num-col">平均理论 SE</th><th class="num-col">RMSE</th><th class="num-col">95% 区间覆盖率</th></tr></thead>'
         f'<tbody>{"".join(rows7)}</tbody>'
         '</table>'
     )
-    slides.append(wrap_slide(7, 2, "四、模拟验证（下）：点估计 RMSE 与 95% 置信区间覆盖率检验",
-                           "完整 DML 的 RMSE 降至 0.032，理论标准误与经验波动完美匹配，95% 区间覆盖率达 96.5%",
+    slides.append(wrap_slide(7, 1, "三、模拟分析（二）：点估计精度（RMSE）与置信区间覆盖率检验",
+                           "Neyman 正交化与 5-折交叉拟合缺一不可，联合实现最低误差（RMSE=0.032）与有效区间推断（96.5%）",
                            s7_body, notes_list[6]))
 
-    # Slide 8: 401k EDA & Confounding
+    # Slide 8: Empirical Background & Data Diagnostics
     s8_body = (
+        '<div class="lead-banner">'
+        f'<strong>研究背景与数据诊断：</strong>针对“税收递延型养老金是否创造净新增储蓄”这一经济学与金融学经典争议，本研究采用 1991 年美国 SIPP 调查数据（N={emp["n"]:,}，零缺失值）开展数据探索与协变量平衡性检验。诊断表明，<strong>原始组间差距（+$19,559）伴随严重高收入选择偏差</strong>，具体特征如下：'
+        '</div>'
         '<div class="row" style="flex:1;">'
-        '<div class="fig-box" style="flex:1.95;">'
+        '<div class="fig-box" style="flex:1.72;">'
         '<img src="../outputs/figures/fig3_401k_eda_confounding.png" alt="图3 401k数据探索与混杂诊断"/>'
         '</div>'
         '<div class="col" style="flex:1;">'
-        '<div class="card">'
-        '<div class="card-hd">真实调查数据来源与质量</div>'
-        '<ul class="ul">'
-        '<li><span class="hl">出处</span>：美国人口普查局 1991 SIPP 家庭调查（Poterba et al. 1995 / Chernozhukov et al. 2018 基准库）。</li>'
-        f'<li><span class="hl">样本完整性</span>：共 <span class="hl-teal">{emp["n"]:,} 户家庭</span>、44 个原始字段，零缺失值；处置变量 e401=1 占 37.1%。</li>'
-        '</ul>'
-        '</div>'
-        '<div class="card amber">'
-        '<div class="card-hd">左图分布特征：极端右偏＋负资产借贷</div>'
-        '<ul class="ul">'
-        '<li>净金融资产 net_tfa 跨度极大（−$50.2 万至 +$153.7 万），中位数仅 $1,499、均值达 $18,052。</li>'
-        '<li>强烈右偏与贫富分化意味着财富函数不可能靠一条简单线性回归拟合。</li>'
+        '<div class="card blue">'
+        '<div class="card-hd">实证经济问题与数据结构（Poterba et al., 1995）</div>'
+        '<ul class="ul compact">'
+        '<li><span class="hl">核心争议</span>：401(k) 养老金究竟带来家庭<span class="hl-teal">净新增储蓄</span>，还是仅诱导富裕群体把原有金融资产转入免税账户（资产挤出/替代效应）？</li>'
+        f'<li><span class="hl">处置与样本</span>：处置变量 e401（雇主提供资格）占 37.1%（{emp["treated_e401"]:,} vs {emp["control_e401"]:,} 户），合格群体实际参与率 p401 为 {emp["compliers_p401_given_e401"]*100:.2f}%。</li>'
+        '<li><span class="hl">控制特征 X</span>：包含年收入、年龄、学历、家庭规模、婚姻、双职工、DB 养老金、个人退休账户与住房 9 维协变量。</li>'
         '</ul>'
         '</div>'
         '<div class="card red" style="flex:1;">'
-        '<div class="card-hd">右图 SMD 诊断：7 项协变量严重失衡</div>'
-        '<ul class="ul">'
-        '<li>年收入 inc (+0.637)、DB 养老金 (+0.521)、自有住房 hown (+0.363)、双职工 (+0.341)、受教育年限 (+0.321) 均远超 0.1 警戒线。</li>'
-        '<li>不消除这些非线性结构性差异，就无法回答 401(k) 究竟贡献了多少净增量。</li>'
+        '<div class="card-hd">分布偏态与协变量失衡诊断（图 3）</div>'
+        '<ul class="ul compact">'
+        f'<li><span class="hl">右偏与极端尾部</span>：净金融资产 net_tfa 跨度 −$50.2 万至 +$153.7 万（均值 $18,052、中位数仅 $1,499），原始均值差达 <span class="hl-red">+${base["naive_diff"]["est"]:,.0f}</span>。</li>'
+        '<li><span class="hl-red">严重选择偏差</span>：9 个协变量中 7 个 |SMD| 超过 0.1 警戒线，其中年收入（+0.637）、固定收益养老金（+0.521）、自有住房（+0.363）与双职工（+0.341）失衡最为突出，且收入与财富呈强非线性关系。</li>'
         '</ul>'
         '</div>'
         '</div>'
         '</div>'
     )
-    slides.append(wrap_slide(8, 3, "五、真实数据实证（一）：1991 SIPP 401(k) 分布与混杂偏差诊断",
-                           "9,915 户家庭资产呈强右偏且存在 7 项超标选择偏差，直接均值差 +$19,559 含巨大混杂水份",
+    slides.append(wrap_slide(8, 2, "四、实证研究背景与数据诊断：1991 SIPP 401(k) 养老金计划",
+                           "净金融资产高度右偏且存在 7 项超标协变量选择偏差，需借助 DML 剥离高维非线性混杂",
                            s8_body, notes_list[7]))
 
-    # Slide 9: 401k Forest Plot Comparison
+    # Slide 9: Empirical Analysis I - Forest Plot & Multi-Learner Comparison
     s9_body = (
+        '<div class="lead-banner">'
+        '<strong>主效应识别分析：</strong>针对 401(k) 资格对家庭净金融资产的平均处理效应，本节在 9,915 户样本上对比传统计量基准与四类机器学习器（Lasso、Ridge、RF、HGB）下的 DML-PLR 与 DML-IRM 模型。结果表明，<strong>DML-IRM 在不同学习器下稳健收敛于 +$7,822 至 +$8,693 且标准误最小</strong>，具体如下：'
+        '</div>'
         '<div class="row" style="flex:1;">'
-        '<div class="fig-box" style="flex:1.68;">'
+        '<div class="fig-box" style="flex:1.52;">'
         '<img src="../outputs/figures/fig4_401k_model_comparison_forest.png" alt="图4 传统方法与DML森林图对比"/>'
         '</div>'
         '<div class="col" style="flex:1;">'
         '<div class="card">'
-        '<div class="card-hd">DML 跨 4 类学习器横向稳定性（5 次交叉切分中位数）</div>'
-        '<table class="tbl">'
+        '<div class="card-hd">跨四类学习器 DML 估计稳健性（5 次切分中位数）</div>'
+        '<table class="tbl" style="font-size:12.8px;">'
         '<thead><tr><th>底层机器学习器</th><th class="num-col">PLR 估计 (SE)</th><th class="num-col">IRM ATE (SE)</th></tr></thead>'
         '<tbody>'
         f'<tr><td>Lasso (高维多项式)</td><td class="num-col">+${plr["Lasso (高维多项式)"]["est"]:,.0f} (${plr["Lasso (高维多项式)"]["se"]:,.0f})</td><td class="num-col">+${irm["Lasso + L1-Logit"]["ATE"]["est"]:,.0f} (${irm["Lasso + L1-Logit"]["ATE"]["se"]:,.0f})</td></tr>'
@@ -444,37 +910,40 @@ def main() -> None:
         '</table>'
         '</div>'
         '<div class="card blue" style="flex:1;">'
-        '<div class="card-hd">三大核心实证判断</div>'
-        '<ul class="ul">'
-        f'<li><span class="hl">剔除富人水份仍显著为正</span>：去掉近万美金混杂水份后，IRM-ATE 在四种完全不同算法下紧凑收敛于 <span class="hl-teal">+$7,822 ~ +$8,693</span>，确凿证明 401(k) 创造了净新增储蓄！</li>'
-        f'<li><span class="hl">推理精度全场最佳</span>：双稳健 IRM 标准误压低至 <span class="hl-teal">$1,142–$1,250</span>，全面优于线性 OLS ($1,524) 与 1:1 PSM ($1,605)。</li>'
-        f'<li><span class="hl">处理组实际获益更高</span>：HGB 下合格群体平均处理效应 <span class="hl">ATT = +${irm["HistGradientBoosting"]["ATT"]["est"]:,.0f}</span>（SE ${irm["HistGradientBoosting"]["ATT"]["se"]:,.0f}）。</li>'
+        '<div class="card-hd">实证对比核心发现</div>'
+        '<ul class="ul compact">'
+        f'<li><span class="hl">显著净储蓄效应</span>：扣除高收入混杂后，IRM-ATE 在四类算法下稳定落于 <span class="hl-teal">+$7,822 ~ +$8,693</span>，证明 401(k) 显著增加了家庭净金融资产。</li>'
+        f'<li><span class="hl">模型效率全面占优</span>：IRM 标准误降至 <span class="hl-teal">$1,142–$1,250</span>，低于线性 OLS（$1,524，且受线性误设影响偏低至 +$5,896）和 1:1 PSM（ATT SE 高达 $3,026）。</li>'
+        f'<li><span class="hl">处理组实际获益更高</span>：HGB 下合格群体平均效应 <span class="hl">ATT 达 +${irm["HistGradientBoosting"]["ATT"]["est"]:,.0f}</span>（SE ${irm["HistGradientBoosting"]["ATT"]["se"]:,.0f}）。</li>'
         '</ul>'
         '</div>'
         '</div>'
         '</div>'
     )
-    slides.append(wrap_slide(9, 3, "五、真实数据实证（二）：传统方法 vs. 四类学习器 DML 森林图",
-                           "四类算法给出一致且高精度收敛：401(k) 资格平均净增家庭金融资产约 $7,822–$8,693",
+    slides.append(wrap_slide(9, 3, "五、实证分析（一）：传统计量基准与多学习器 DML 主效应对比",
+                           "四类不同算法下的 DML-IRM 结论高度一致，在显著缩小标准误的同时确认 401(k) 净增储蓄效应",
                            s9_body, notes_list[8]))
 
-    # Slide 10: Overlap, Sensitivity & IV LATE
+    # Slide 10: Empirical Analysis II - Overlap, Sensitivity & IV LATE
     s10_body = (
+        '<div class="lead-banner">'
+        '<strong>假设核验与稳健性检验：</strong>为验证识别假设与排除内生特征干扰，本节依次开展交叉拟合倾向得分重叠检验、剔除争议特征 pira 的敏感性重估，以及以 e401 为工具变量的 DML-IIVM 实际参与效应分析。结果表明<strong>正性假设成立、主结论高度稳健且实际参与 LATE 达 +$12,107</strong>，具体如下：'
+        '</div>'
         '<div class="row" style="flex:1;">'
-        '<div class="col" style="flex:1.35;">'
+        '<div class="col" style="flex:1.25;">'
         '<div class="fig-box" style="flex:1;">'
         '<img src="../outputs/figures/fig5_401k_propensity_overlap.png" alt="图5 倾向得分重叠检验"/>'
         '</div>'
         '<div class="note-strip">'
-        f'<strong>正性（Positivity）假设核验：</strong>HGB 交叉拟合倾向得分 m̂(X) 5%–95% 分位为 <strong>[{ps["hgb_ps_p05"]:.3f}, {ps["hgb_ps_p95"]:.3f}]</strong>（全范围 [{ps["hgb_ps_min"]:.3f}, {ps["hgb_ps_max"]:.3f}]），两组分布重叠充分，无逆概率极端权重爆炸风险。'
+        f'<strong>正性假设检验：</strong>HGB 倾向得分 <span class="hat">m</span>(X) 的 5%–95% 分位为 <strong>[{ps["hgb_ps_p05"]:.3f}, {ps["hgb_ps_p95"]:.3f}]</strong>（全样本 [{ps["hgb_ps_min"]:.3f}, {ps["hgb_ps_max"]:.3f}]），两组分布重叠充分，无极端权重放大风险。'
         '</div>'
         '</div>'
         '<div class="col" style="flex:1;">'
         '<div class="card">'
-        '<div class="card-hd">敏感性检验：剔除争议变量 pira（个人退休账户）</div>'
-        '<p class="p-text">学者常质疑“是否开了 IRA (pira)”本身反映个人隐含储蓄意愿。踢掉 pira 仅用 8 个特征重跑 HGB：</p>'
-        '<table class="tbl">'
-        '<thead><tr><th>HGB 模型设定</th><th class="num-col">9 特征基准</th><th class="num-col">剔除 pira (8 特征)</th></tr></thead>'
+        '<div class="card-hd">协变量敏感性检验：剔除个人退休账户 pira</div>'
+        '<p class="p-text compact">为检验是否开设 IRA（pira）所隐含的主观储蓄偏好对估计结果的潜在影响，剔除 pira 仅保留 8 项协变量重估 HGB 模型：</p>'
+        '<table class="tbl" style="font-size:13px;">'
+        '<thead><tr><th>HGB 模型设定</th><th class="num-col">9 协变量基准</th><th class="num-col">剔除 pira (8 协变量)</th></tr></thead>'
         '<tbody>'
         f'<tr><td>DML-PLR</td><td class="num-col">+${plr["HistGradientBoosting"]["est"]:,.0f}</td><td class="num-col">+${sens["dml_plr_hgb"]["est"]:,.0f} (SE ${sens["dml_plr_hgb"]["se"]:,.0f})</td></tr>'
         f'<tr class="hl-row"><td>DML-IRM (ATE)</td><td class="num-col">+${irm["HistGradientBoosting"]["ATE"]["est"]:,.0f}</td><td class="num-col">+${sens["dml_irm_hgb_ATE"]["est"]:,.0f} (SE ${sens["dml_irm_hgb_ATE"]["se"]:,.0f})</td></tr>'
@@ -483,21 +952,21 @@ def main() -> None:
         '</table>'
         '</div>'
         '<div class="card dark" style="flex:1;">'
-        '<div class="card-hd">工具变量拓展（DML-IIVM）：从“资格效应”到“真实参与效应”</div>'
+        '<div class="card-hd">工具变量拓展（DML-IIVM）：实际参与效应 LATE</div>'
         f'<div style="font-size:28px;font-weight:700;color:#FBBF24;">LATE = +${late["est"]:,.0f} <span style="font-size:14px;color:#CBD5E1;">(SE ${late["se"]:,.0f})</span></div>'
-        '<ul class="ul">'
-        f'<li>并非有资格就一定会存钱：合格家庭中实际参与 p401 占比 <span style="color:#7DD3FC;font-weight:700;">{emp["compliers_p401_given_e401"]*100:.2f}%</span>（无资格组为 0%，单边服从）。</li>'
-        f'<li>衔接讲义 1.2.5 工具变量逻辑，以 e401 为 p401 的工具变量，IIVM 估得实际参加者的净储蓄增量高达 +${late["est"]:,.0f}（95% CI [${late["ci95_low"]:,.0f}, ${late["ci95_high"]:,.0f}]），与 ATE ÷ 0.7045 逻辑吻合！</li>'
+        '<ul class="ul compact">'
+        f'<li>合格家庭中实际参与 p401 的比例为 <span style="color:#7DD3FC;font-weight:700;">{emp["compliers_p401_given_e401"]*100:.2f}%</span>（无资格组为 0%，呈现严格单边服从结构）。</li>'
+        f'<li>以资格 e401 作为实际参与 p401 的工具变量，IIVM 测得依从者净金融资产增量为 +${late["est"]:,.0f}（95% CI [${late["ci95_low"]:,.0f}, ${late["ci95_high"]:,.0f}]），与 ATE ÷ 0.7045 逻辑自洽。</li>'
         '</ul>'
         '</div>'
         '</div>'
         '</div>'
     )
-    slides.append(wrap_slide(10, 3, "六、假设核验与稳健性：倾向得分重叠、无 pira 敏感性与工具变量 LATE",
-                           "倾向得分重叠饱满；剔除 pira 结论不变；资格作工具变量测出实际参与效应达 +$12,107",
+    slides.append(wrap_slide(10, 3, "五、实证分析（二）：重叠性检验、协变量敏感性与工具变量 LATE",
+                           "倾向得分重叠充足、剔除潜在内生控制后估计稳健，且工具变量进一步识别实际参与因果效应",
                            s10_body, notes_list[9]))
 
-    # Slide 11: Income Quartile GATE
+    # Slide 11: Empirical Analysis III - Income Heterogeneity (GATE)
     rows11 = []
     for i, g in enumerate(gates):
         cls = ' class="hl-row"' if i in (0, 3) else ""
@@ -511,21 +980,20 @@ def main() -> None:
             f'<td class="num-col">{g["effect_to_income_pct"]:.1f}%</td></tr>'
         )
     s11_body = (
-        '<div class="row" style="flex:1.18;">'
-        '<div class="fig-box" style="flex:2.1;">'
+        '<div class="lead-banner">'
+        '<strong>异质性因果分析：</strong>为检验不同收入阶层对 401(k) 激励的差异化响应，本节直接对 HGB DML-IRM 所得交叉拟合正交伪结果 <span class="hat">φ</span><sub>i</sub> 按年收入四分位（Q1–Q4）分组估计群体平均处理效应（GATE）。结果显示<strong>显著的绝对增量与相对杠杆双极分化</strong>，具体如下：'
+        '</div>'
+        '<div class="row" style="flex:1.12;">'
+        '<div class="fig-box" style="flex:1.95;">'
         '<img src="../outputs/figures/fig6_401k_heterogeneity_gate.png" alt="图6 收入四分位异质性GATE"/>'
         '</div>'
         '<div class="col" style="flex:1;">'
-        '<div class="card blue">'
-        '<div class="card-hd">异质性分析怎么算？</div>'
-        '<p class="p-text">直接对交叉拟合 IRM 算出的每个家庭正交伪结果 φ<sub>i</sub> 按年收入四分位（Q1–Q4）分组求均值与标准误，不破坏正交推断性质。</p>'
-        '</div>'
-        '<div class="card amber" style="flex:1;">'
-        '<div class="card-hd">颠覆直觉的双极发现</div>'
-        '<ul class="ul">'
-        f'<li><span class="hl">绝对美元看 Q4 最高</span>：高收入家庭净增 <span class="hl-teal">+${gates[3]["gate"]:,.0f}</span>（占年收 {gates[3]["effect_to_income_pct"]:.1f}%）。</li>'
-        f'<li><span class="hl-amber">相对收入撬动看 Q1 第一</span>：低收入家庭绝对增量虽为 +${gates[0]["gate"]:,.0f}，却占其中位年收的 <span class="hl-red">{gates[0]["effect_to_income_pct"]:.1f}%</span>（p&lt;0.001）！</li>'
-        f'<li><span class="hl">Q2 夹心层暂不显著</span>：区间 [${gates[1]["ci95_low"]:,.0f}, ${gates[1]["ci95_high"]:,.0f}] 跨零，受现金流与房贷挤压较强。</li>'
+        '<div class="card blue" style="flex:1;">'
+        '<div class="card-hd">异质性响应的核心机制解读</div>'
+        '<ul class="ul compact">'
+        f'<li><span class="hl">绝对增量集中于高收入层</span>：Q4 组（中位年收 ${gates[3]["median_inc"]:,.0f}）单户净增金融资产达 <span class="hl-teal">+${gates[3]["gate"]:,.0f}</span>，占总资产扩张规模比重最高。</li>'
+        f'<li><span class="hl-amber">相对收入杠杆以低收入层最大</span>：Q1 组（中位年收 ${gates[0]["median_inc"]:,.0f}）增量虽为 +${gates[0]["gate"]:,.0f}，却占其中位年收 <span class="hl-red">{gates[0]["effect_to_income_pct"]:.1f}%</span>（p&lt;0.001），反映该群体初始储蓄极低、资产挤出极少。</li>'
+        f'<li><span class="hl">中低收入层呈流动性约束</span>：Q2 组估计区间 [${gates[1]["ci95_low"]:,.0f}, ${gates[1]["ci95_high"]:,.0f}] 跨过零点，受日常现金流支出挤压影响，对长期锁定型激励敏感度较低。</li>'
         '</ul>'
         '</div>'
         '</div>'
@@ -535,128 +1003,129 @@ def main() -> None:
         f'<tbody>{"".join(rows11)}</tbody>'
         '</table>'
     )
-    slides.append(wrap_slide(11, 3, "七、商业客群洞察：按收入四分位的异质性因果效应（GATE）",
-                           "高收入客群绝对增量最大 (+$20,588)，低收入客群相对年收入的财富撬动率高达 36.6%",
+    slides.append(wrap_slide(11, 3, "五、实证分析（三）：基于正交伪结果的收入异质性效应（GATE）",
+                           "不破坏正交渐近推断的前提下揭示群体异质性：Q4 绝对效应居首，Q1 相对收入储蓄杠杆高达 36.6%",
                            s11_body, notes_list[10]))
 
-    # Slide 12: Commercial & Policy Recommendations
+    # Slide 12: Conclusions I - Model Performance & Empirical Implications
     s12_body = (
         '<div class="grid-2" style="flex:1;">'
-        '<div class="card blue">'
-        '<div class="card-hd">面向商业银行与养老金资管机构：差异化分层运营</div>'
-        '<ul class="ul" style="gap:9px;margin-top:4px;">'
-        f'<li><span class="hl">1. 锁定 Q4 高净值客群做 AUM 核心扩张池</span><br>Q4 家庭中位年收 ${gates[3]["median_inc"]:,.0f}，单户资格即可撬动 <span class="hl-teal">+${gates[3]["gate"]:,.0f}</span> 净金融资产沉淀。金融机构应将高薪企业代发工资场景与个人养老金高阶指数/固收+组合打包营销，并用节税测算工具放大转化。</li>'
-        f'<li><span class="hl">2. 理解并激活 Q2“夹心工薪层”痛点</span><br>Q2 群体（中位年收 ${gates[1]["median_inc"]:,.0f}）GATE 仅 +${gates[1]["gate"]:,.0f} 且置信区间跨零，说明传统长期锁定期的税收递延对其现金流挤压敏感。商业机构可探索搭配“低门槛定投＋应急贷款质押/特定大病支取灵活性”产品。</li>'
-        '<li><span class="hl">3. 同时监测产品净流入与整户总金融资产</span><br>避免高收入客群仅把本行普通定期存款搬入养老账户（零净新增），用整户 AUM 净增量考核真实营销 ROI。</li>'
+        '<div class="card blue" style="padding:14px 18px;gap:10px;">'
+        '<div class="card-hd" style="font-size:17.5px;">一、DML 模型性能综合评估（核心结论）</div>'
+        '<ul class="ul" style="font-size:15.5px;line-height:1.54;gap:12px;">'
+        '<li><span class="hl">1. 理论机制验证：双支柱协同消除双类偏误</span><br>Monte Carlo 模拟证实，唯有联合使用 Neyman 正交化与 5-折交叉拟合，方可在高维非线性混杂下实现渐近无偏（均值 1.997 vs 真值 2.000），将 RMSE 由 0.260–0.871 降至 <span class="hl-teal">0.032</span>，并把 95% 置信区间覆盖率由 0.0% 恢复至 <span class="hl-teal">96.5%</span>。</li>'
+        '<li><span class="hl">2. 实证跨学习器稳健性与估计精度优势</span><br>在 9,915 户真实家庭数据上，Lasso、Ridge、RF 与 HGB 四类算法下的 DML-IRM ATE 高度集中于 <span class="hl-teal">+$7,822 ~ +$8,693</span>，标准误（$1,142–$1,250）明显低于线性 OLS（$1,524）与 1:1 PSM（ATT SE $3,026）。</li>'
+        '<li><span class="hl">3. 统一框架延展能力强</span><br>同一正交得分体系可平滑拓展至工具变量（IIVM LATE +$12,107）与群体异质性估计（GATE），无需针对不同任务重新推导复杂渐近分布。</li>'
         '</ul>'
         '</div>'
-        '<div class="card teal">'
-        '<div class="card-hd">面向普惠金融与公共财税政策：破解“穷人不会存钱”偏见</div>'
-        '<ul class="ul" style="gap:9px;margin-top:4px;">'
-        f'<li><span class="hl">1. 推翻“低收入无储蓄弹性”的错误直觉</span><br>Q1 低收入家庭（中位年收 ${gates[0]["median_inc"]:,.0f}）净增 +${gates[0]["gate"]:,.0f}（95% CI [+${gates[0]["ci95_low"]:,.0f}, +${gates[0]["ci95_high"]:,.0f}]），相当于其一整年收入的 <span class="hl-red">{gates[0]["effect_to_income_pct"]:.1f}%</span>——说明他们原本几乎零金融储备，一旦提供便利储蓄通道，几乎全部转化为净新增资产，很少存在资产挤出。</li>'
-        '<li><span class="hl">2. 机制抓手：默认自动加入（Auto-Enrollment）＋ 固定配比补贴</span><br>单纯提高个税免税额度往往只有边际税率高的 Q4 享受到红利；若向 Q1/Q2 倾斜“雇主/财政定额配比（Matching）＋默认自动参保”，普惠社会财富杠杆效果远超单纯减税。</li>'
-        '<li><span class="hl">3. 对中国个人养老金制度的定量启发</span><br>仅靠税优对中低收入免税群体吸引力不足，必须配套“默认账户＋微额财政补贴”才能激发长尾人群参与。</li>'
+        '<div class="card teal" style="padding:14px 18px;gap:10px;">'
+        '<div class="card-hd" style="font-size:17.5px;">二、401(k) 实证发现与商业政策决策启示</div>'
+        '<ul class="ul" style="font-size:15.5px;line-height:1.54;gap:12px;">'
+        '<li><span class="hl">1. 证实税收递延养老金的净储蓄创造效应</span><br>剥离年收入 SMD (+0.637) 等高阶混杂后，401(k) 资格与实际参与仍分别带来 +$8,693 与 +$12,107 净金融资产增量，不支持“纯资产替代”假说。</li>'
+        '<li><span class="hl">2. 商业金融机构分层运营与 AUM 考核优化</span><br>Q4 高收入群体单户撬动 +$20,588 净金融资产，应作为企业代发与个人养老金高阶组合的核心获客池，并以整户净金融资产增量防止内部资金搬迁。</li>'
+        '<li><span class="hl">3. 普惠养老政策工具设计启发</span><br>Q1 低收入群体相对收入撬动率高达 36.6%（p&lt;0.001），提示“默认自动加入（Auto-Enrollment）＋定额财政/雇主配比”对提升中低收入长期财富缓冲显著有效；Q2 群体则需配套更具流动性的应急支取机制。</li>'
         '</ul>'
         '</div>'
         '</div>'
     )
-    slides.append(wrap_slide(12, 4, "八、商业应用与公共政策落地建议",
-                           "同一项实证同时服务资管机构“分层扩充 AUM”与公共政策“精准滴灌普惠储蓄”两类决策",
+    slides.append(wrap_slide(12, 4, "六、研究结论（一）：DML 模型性能总结与实证决策启示",
+                           "DML 在有限样本精度、区间有效性、多学习器一致性与异质性拓展方面均显著优于传统基准模型",
                            s12_body, notes_list[11]))
 
-    # Slide 13: Boundaries & Extensions
+    # Slide 13: Conclusions II - Model Boundaries & Extensions
     s13_body = (
         '<div class="grid-2" style="flex:1;">'
-        '<div class="card amber">'
-        '<div class="card-hd">必须诚实交代的三条统计证据边界</div>'
-        '<ul class="ul" style="gap:9px;margin-top:4px;">'
-        '<li><span class="hl-amber">1. 条件可忽略性边界（Unconfoundedness）</span><br>DML 只能彻底控制住观测变量 X 里的非线性混杂；如果员工择业时“本来就爱存钱的人更愿意去有 401(k) 的公司”，而数据里没记录主观储蓄偏好，仍会有未观测混淆残留（即使我们做了剔除 pira 检验，也只能检验已知维度）。</li>'
-        '<li><span class="hl-amber">2. 极端倾向得分的方差脆弱性</span><br>在双稳健得分里有 1/m̂(X) 和 1/(1−m̂(X)) 项；虽然本数据集重叠很好（5%–95% 为 0.054–0.707），但在某些极不平衡业务场景需改用重叠加权（Overlap Weights）。</li>'
-        '<li><span class="hl-amber">3. 截面历史数据时代迁移限制</span><br>1991 年美国家庭截面数据主要用于方法示范与经典经济学验证，外推至当下中国养老金市场需重新采集本土面板数据。</li>'
+        '<div class="card amber" style="padding:14px 18px;gap:10px;">'
+        '<div class="card-hd" style="font-size:17.5px;">一、模型统计假设边界与现实应用局限</div>'
+        '<ul class="ul" style="font-size:15.5px;line-height:1.54;gap:12px;">'
+        '<li><span class="hl-amber">1. 条件可忽略性假设限制（Unconfoundedness）</span><br>DML 依赖“控制可观测协变量 X 后处置与潜在结果独立”的识别前提，无法消除未观测个体特征（如主观风险厌恶或储蓄偏好）带来的残留偏误；本文通过剔除 pira 检验与 IIVM 工具变量部分缓解但不能完全替代随机对照或面板识别。</li>'
+        '<li><span class="hl-amber">2. 极端倾向得分下的逆概率权重敏感性</span><br>IRM 正交得分包含 1/<span class="hat">m</span>(X) 与 1/(1−<span class="hat">m</span>(X)) 项；虽然本实证 5%–95% 重叠区为 0.054–0.707，但在极度不平衡业务场景中 <span class="hat">m</span>(X) 接近 0 或 1 会引发方差剧烈膨胀，需采用截断、重叠加权（Overlap Weights）或样本修剪。</li>'
+        '<li><span class="hl-amber">3. 收敛速率前提与截面外推限制</span><br>要求两阶段学习器达到 o(n<sup>−1/4</sup>) 速率；此外 1991 年美国截面数据主要用于检验机制，推广至中国个人养老金体系仍需本土纵贯追踪数据标定。</li>'
         '</ul>'
         '</div>'
-        '<div class="card blue">'
-        '<div class="card-hd">可无缝衔接的三大方法延伸方向</div>'
-        '<ul class="ul" style="gap:9px;margin-top:4px;">'
-        '<li><span class="hl">1. 融合面板与双重差分（DID-DML）</span><br>把讲义 3 的固定效应、双重差分与 DML 正交化结合，同时消除“不随时间变化的未观测个人偏好”与“随时间变化的高维非线性混杂”。</li>'
-        '<li><span class="hl">2. 个体化策略树与 Causal Forest</span><br>把本文按收入 4 分位汇总的 GATE 进一步细化为个体级条件效应 <span class="hl-teal">CATE(X)</span>，配合 Policy Tree 自动学习可解释的银行发券/授信规则。</li>'
-        '<li><span class="hl">3. 混淆强度敏感性边界（OVB Bounds）</span><br>引用 Chernozhukov 等人最新的偏 R² 敏感性分析工具，定量计算“未观测储蓄偏好至少要强到多少倍，才能把当前 +$8,693 结论翻成零”。</li>'
+        '<div class="card blue" style="padding:14px 18px;gap:10px;">'
+        '<div class="card-hd" style="font-size:17.5px;">二、前沿方法论延伸方向</div>'
+        '<ul class="ul" style="font-size:15.5px;line-height:1.54;gap:12px;">'
+        '<li><span class="hl">1. 面板双重差分与双向固定效应融合（DID-DML）</span><br>将时间差分或个体固定效应与 DML 正交得分结合，从而同步消除不随时间变化的未观测个体异质性与时变高维非线性混杂。</li>'
+        '<li><span class="hl">2. 个体条件平均处理效应（CATE / Causal Forest）</span><br>从本文按收入四分位聚合的 GATE 进一步精细化至个体层面异质效应估计 <span class="hl-teal">τ(X) = E[Y(1)−Y(0) | X=x]</span>，并结合 Policy Tree 学习可解释的精准营销或授信决策边界。</li>'
+        '<li><span class="hl">3. 遗漏变量敏感性定量边界分析（OVB Bounds）</span><br>引入 Chernozhukov 等 (2022) 提出的偏 R² 非参数敏感性分析框架，定量测算未观测混淆因子至少需解释多少比例的处置与结果残差方差，才会逆转当前 +$8,693 的显著结论。</li>'
         '</ul>'
         '</div>'
         '</div>'
     )
-    slides.append(wrap_slide(13, 4, "九、方法边界、局限性与前沿延伸方向",
-                           "DML 解决可观测高维非线性混杂而非未观测遗漏变量；结合面板/DID 与 Causal Forest 是重要扩展",
+    slides.append(wrap_slide(13, 4, "六、研究结论（二）：模型适用边界、局限性与前沿延伸",
+                           "明确条件可忽略性、重叠度与收敛速率边界，并衔接面板 DID-DML、Causal Forest 与混淆敏感性检验",
                            s13_body, notes_list[12]))
 
     # Slide 14: 3-Min Extended Applications
     s14_body = (
         '<div class="grid-3" style="flex:1;">'
-        '<div class="card blue">'
-        '<div class="card-hd">成员 A｜陈霖（量化多因子与大模型 RL）</div>'
-        '<ul class="ul">'
-        '<li><span class="hl">背景经历</span>：Trexquant 美股多因子选股实习 ＋ 上海人工智能实验室大模型推理与 Agent RL 研究。</li>'
-        '<li><span class="hl">应用 1｜量化多因子真 Alpha 归因</span>：用 Ridge/XGBoost/LGBM 合成新闻情绪与量价因子时，市值、波动率与行业暴露常与收益呈复杂非线性混杂；用 DML 对新因子和超额收益同时做交叉拟合正交残差，可净评估真实增量 Alpha。</li>'
-        '<li><span class="hl">应用 2｜Agent RL 离线策略评估</span>：在难度各异的高维推理轨迹上，用双稳健正交得分无偏估计工具调用或新策略带来的净回报提升，避免奖励模型过拟合偏差。</li>'
+        '<div class="card blue" style="padding:13px 16px;gap:9px;">'
+        '<div class="card-hd" style="font-size:16.5px;">成员 A｜陈霖（量化多因子与 Agent RL）</div>'
+        '<ul class="ul" style="font-size:15px;line-height:1.5;gap:10px;">'
+        '<li><span class="hl">实践背景</span>：Trexquant 美股多因子选股研究实习 ＋ 上海人工智能实验室大模型推理与 Agent 强化学习研究。</li>'
+        '<li><span class="hl">拓展 1｜多因子增量 Alpha 识别</span>：利用非线性学习器合成情绪或量价特征时，市值、波动率与行业暴露常与收益呈高维非线性混杂；采用 DML 同时对新因子与超额收益做交叉拟合正交残差，可无偏检验新信号真实增量 Alpha。</li>'
+        '<li><span class="hl">拓展 2｜Agent RL 离线策略评估</span>：在高维复杂任务状态空间下，借助双稳健正交得分进行反事实回报归因，有效抑制奖励模型或价值函数正则化带来的策略评估偏误。</li>'
         '</ul>'
         '</div>'
-        '<div class="card">'
-        '<div class="card-hd">成员 B｜[请填姓名]（互联网营销 Uplift 模板）</div>'
-        '<ul class="ul">'
-        '<li><span class="hl">适用领域</span>：互联网平台优惠券补贴、会员续费定价或流量投放（请结合个人实习替换）。</li>'
-        '<li><span class="hl">业务痛点</span>：历史优惠券往往发给了本来就高活跃或即将流失的用户，直接对比“领券 vs 未领券”下单率偏差巨大。</li>'
-        '<li><span class="hl">DML 落地方式</span>：用 GBDT 控制数十维用户历史点击/加购非线性特征，通过 IRM 正交得分估计各细分客群真实增效 Uplift。</li>'
-        '<li><span class="hl">预期价值</span>：剔除“不发券也买”的假增量人群，把补贴预算集中投向高敏感用户，提升营销 ROI。</li>'
+        '<div class="card" style="padding:13px 16px;gap:9px;">'
+        '<div class="card-hd" style="font-size:16.5px;">成员 B｜[请填姓名]（互联网用户增长 Uplift）</div>'
+        '<ul class="ul" style="font-size:15px;line-height:1.5;gap:10px;">'
+        '<li><span class="hl">应用场景</span>：互联网电商优惠券激励、会员转化定价或内容分发干预评估（请结合个人实习经历替换）。</li>'
+        '<li><span class="hl">混杂痛点</span>：历史营销干预往往优先触达高活跃用户，直接比较“领券组与未领券组”转化率会产生严重正向选择偏差。</li>'
+        '<li><span class="hl">DML 方案</span>：利用 GBDT 吸收数十维历史点击、浏览与复购非线性特征，通过 IRM 正交得分识别真正对补贴敏感的高增效客群。</li>'
+        '<li><span class="hl">预期价值</span>：剥离自然转化群体，优化补贴资金边际投放效率（ROI）。</li>'
         '</ul>'
         '</div>'
-        '<div class="card teal">'
-        '<div class="card-hd">成员 C｜[请填姓名]（金融科技信贷风控模板）</div>'
-        '<ul class="ul">'
-        '<li><span class="hl">适用领域</span>：消费信贷额度调整、分期费率优惠因果评估（请结合个人实习替换）。</li>'
-        '<li><span class="hl">业务痛点</span>：平台本来就是依据复杂信用评分卡决定是否给用户提额，传统回归难以剥离非线性授信规则导致的混杂。</li>'
-        '<li><span class="hl">DML 落地方式</span>：保留风控团队最熟悉的 XGBoost/LightGBM 吸收高维征信特征，套用 DML 交叉拟合输出带合法 95% 置信区间的提额净收益与坏账响应。</li>'
-        '<li><span class="hl">最需注意</span>：需额外补充随机小流量保留组以检验是否存在未记录人工审批偏差。</li>'
+        '<div class="card teal" style="padding:13px 16px;gap:9px;">'
+        '<div class="card-hd" style="font-size:16.5px;">成员 C｜[请填姓名]（金融科技信贷风控）</div>'
+        '<ul class="ul" style="font-size:15px;line-height:1.5;gap:10px;">'
+        '<li><span class="hl">应用场景</span>：消费信贷额度调整、分期利率优惠因果效应评估（请结合个人实习经历替换）。</li>'
+        '<li><span class="hl">混杂痛点</span>：风控授信原本依赖高维非线性信用评分卡，授信额度与客户资质高度纠缠。</li>'
+        '<li><span class="hl">DML 方案</span>：保留 XGBoost/LightGBM 对复杂征信特征的强表征能力，借助 Neyman 正交交叉拟合输出具有严格 95% 置信区间的提额净收益与坏账增量响应。</li>'
+        '<li><span class="hl">边界兜底</span>：结合小比例随机保留实验组验证条件可忽略性假设。</li>'
         '</ul>'
         '</div>'
         '</div>'
         '<div class="note-strip">'
-        '<strong>组员改稿小贴士：</strong>组员 B、C 只需将第 2、3 栏的“[请填姓名]”与例子换成自己熟悉或实习过的项目（控制在每人 150 字 / 口播 50 秒内），再运行一行 <code>python3 html_to_pptx.py</code> 即可重生成高清 PPTX！'
+        '<strong>协作提示：</strong>汇报最后 3 分钟由小组成员依次陈述（每人 ≤ 1 分钟）；成员 B、C 更新对应板块个人案例与姓名后运行 <code>python3 html_to_pptx.py --version v2</code> 即可同步更新 PPTX。'
         '</div>'
     )
-    slides.append(wrap_slide(14, 4, "十、3 分钟组内个人拓展：把 DML 带回各自的实习与研究领域",
-                           "每人 1 分钟以内，讲清“我在什么业务里控制了什么高维非线性混杂、想评估谁对谁的净因果”",
+    slides.append(wrap_slide(14, 4, "七、模型拓展应用：结合实习与研究领域的 3 分钟个人阐述",
+                           "围绕各自业务场景界定“处置变量—高维非线性混杂—净因果目标”，说明 DML 的实际落地价值",
                            s14_body, notes_list[13]))
 
     # Slide 15: References & Q&A
     s15_body = (
         '<div class="row" style="flex:1;">'
         '<div class="card" style="flex:1.5;">'
-        '<div class="card-hd">核验学术文献与课程讲义衔接（已核对精确刊名、卷期与页码）</div>'
-        '<ul class="ul" style="font-size:11.8px;gap:7px;">'
-        '<li><span class="hl">[1] Chernozhukov, V., Chetverikov, D., Demirer, M., Duflo, E., Hansen, C., Newey, W., &amp; Robins, J. (2018).</span> Double/debiased machine learning for treatment and structural parameters. <em>The Econometrics Journal</em>, 21(1), C1–C68.（本文核心理论奠基）</li>'
-        '<li><span class="hl">[2] Robinson, P. M. (1988).</span> Root-N-consistent semiparametric regression. <em>Econometrica</em>, 56(4), 931–954.（PLR 残差化思想起源）</li>'
-        '<li><span class="hl">[3] Chernozhukov, V., &amp; Hansen, C. (2004).</span> The effects of 401(k) participation on the wealth distribution: An instrumental quantile regression analysis. <em>The Review of Economics and Statistics</em>, 86(3), 735–751.</li>'
-        '<li><span class="hl">[4] Poterba, J. M., Venti, S. F., &amp; Wise, D. A. (1995).</span> Do 401(k) contributions crowd out other personal saving? <em>Journal of Public Economics</em>, 58(1), 1–32.（建立 SIPP 401k 自然实验与 9 维基准变量）</li>'
-        '<li><span class="hl">[5] Abadie, A. (2003).</span> Semiparametric instrumental variable estimation of treatment response models. <em>Journal of Econometrics</em>, 113(2), 231–263.（单边服从 LATE 半参数理论）</li>'
-        '<li><span class="hl">[6] Chernozhukov, V., et al. (2024).</span> <em>Applied Causal Inference Powered by ML and AI</em>. CausalAIBook.（提供标准化 <code>401k.csv</code> 数据）</li>'
-        '<li><span class="hl">[7] 课程讲义 1–3 衔接（冯项楠老师）</span>：潜在结果框架（Neyman 1923, Rubin 1974）、线性控制回归（讲义 2.2）、倾向得分匹配 PSM（讲义 2.3）与工具变量 IV（讲义 1.2.5）。</li>'
+        '<div class="card-hd">主要学术参考文献（已核对精确刊名、年份、卷期与页码）</div>'
+        '<ul class="ul" style="font-size:13.2px;line-height:1.42;gap:6px;">'
+        '<li><span class="hl">[1] Chernozhukov, V., Chetverikov, D., Demirer, M., Duflo, E., Hansen, C., Newey, W., &amp; Robins, J. (2018).</span> Double/debiased machine learning for treatment and structural parameters. <em>The Econometrics Journal</em>, 21(1), C1–C68.</li>'
+        '<li><span class="hl">[2] Robinson, P. M. (1988).</span> Root-N-consistent semiparametric regression. <em>Econometrica</em>, 56(4), 931–954.</li>'
+        '<li><span class="hl">[3] Robins, J. M., Rotnitzky, A., &amp; Zhao, L. P. (1994).</span> Estimation of regression coefficients when some regressors are not always observed. <em>Journal of the American Statistical Association</em>, 89(427), 846–866.</li>'
+        '<li><span class="hl">[4] Rosenbaum, P. R., &amp; Rubin, D. B. (1983).</span> The central role of the propensity score in observational studies for causal effects. <em>Biometrika</em>, 70(1), 41–55.</li>'
+        '<li><span class="hl">[5] Poterba, J. M., Venti, S. F., &amp; Wise, D. A. (1995).</span> Do 401(k) contributions crowd out other personal saving? <em>Journal of Public Economics</em>, 58(1), 1–32.</li>'
+        '<li><span class="hl">[6] Abadie, A. (2003).</span> Semiparametric instrumental variable estimation of treatment response models. <em>Journal of Econometrics</em>, 113(2), 231–263.</li>'
+        '<li><span class="hl">[7] Chernozhukov, V., &amp; Hansen, C. (2004).</span> The effects of 401(k) participation on the wealth distribution. <em>The Review of Economics and Statistics</em>, 86(3), 735–751.</li>'
+        '<li><span class="hl">[8] Belloni, A., Chernozhukov, V., &amp; Hansen, C. (2014).</span> Inference on treatment effects after selection among high-dimensional controls. <em>Review of Economic Studies</em>, 81(2), 608–650; Chernozhukov et al. (2024), CausalAIBook.</li>'
         '</ul>'
         '</div>'
         '<div class="col" style="flex:1;">'
         '<div class="card dark" style="flex:1;">'
-        '<div class="card-hd">欢迎老师与同学提问（Q&amp;A 重点议题）</div>'
-        '<ul class="ul" style="gap:9px;margin-top:4px;">'
-        '<li><span style="color:#FBBF24;font-weight:700;">Q1：从 PSM 升级到 DML-IRM</span><br>为什么双稳健正交得分既把误差降到 n<sup>−1/4</sup>×n<sup>−1/4</sup>，又把 401(k) ATT 标准误从 $3,026 压至 $1,683？</li>'
-        '<li><span style="color:#FBBF24;font-weight:700;">Q2：无交叉拟合为什么往下偏到 1.640？</span><br>深层森林样本内过拟合时，同时吸收了部分外生扰动 V，导致残差出现负向相关偏差。</li>'
-        '<li><span style="color:#FBBF24;font-weight:700;">Q3：学习器切换一致性</span><br>模拟中 Poly2+Lasso 与 401(k) 中四类模型各自发挥什么作用？为什么实证收敛在 $7.8k–$8.7k？</li>'
-        '<li><span style="color:#FBBF24;font-weight:700;">Q4：未观测储蓄偏好检验</span><br>除了踢掉 pira 与用 e401 做工具变量算 LATE，还有哪些面板或敏感性证据可进一步加固？</li>'
+        '<div class="card-hd">Q&amp;A 核心讨论议题</div>'
+        '<ul class="ul compact" style="gap:8px;margin-top:3px;">'
+        '<li><span style="color:#FBBF24;font-weight:700;">Q1：DML-IRM 与传统 PSM 的本质差异</span><br>双稳健正交得分把偏差收敛阶压缩为二阶乘积 n<sup>−1/4</sup>×n<sup>−1/4</sup>，同时保留全样本信息，将 ATT 标准误从 $3,026 降至 $1,683。</li>'
+        '<li><span style="color:#FBBF24;font-weight:700;">Q2：无交叉拟合为何产生负向偏误（1.640）？</span><br>深层树模型在全样本上过度拟合 Y 与 D 中的结构噪声，造成正交残差间出现人为负相关偏移。</li>'
+        '<li><span style="color:#FBBF24;font-weight:700;">Q3：模拟与实证中底层学习器选择的逻辑</span><br>模拟采用 Poly2+Lasso 检验已知二阶结构下的理想速率；实证则并行四类异质算法交叉印证结论稳健性。</li>'
+        '<li><span style="color:#FBBF24;font-weight:700;">Q4：如何进一步检验未观测储蓄偏好？</span><br>除剔除 pira 与借助 e401 估出 LATE 外，可引入面板 DID-DML 与偏 R² 混淆强度敏感性边界。</li>'
         '</ul>'
         '</div>'
         '</div>'
         '</div>'
     )
-    slides.append(wrap_slide(15, 4, "十一、核心参考文献与 Q&A 交流",
-                           "全部模拟、401(k) 实证代码与数据可一键复现，感谢冯项楠老师、吴尚老师与各位同学聆听！",
+    slides.append(wrap_slide(15, 4, "八、主要参考文献与 Q&A 交流",
+                           "全部模拟程序、1991 SIPP 实证脚本与检验结果可完整复现，敬请各位老师与同学批评指正！",
                            s15_body, notes_list[14]))
 
     html_doc = (
@@ -665,8 +1134,8 @@ def main() -> None:
         '<head>\n'
         '<meta charset="UTF-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n'
-        '<title>版本二｜双重机器学习（DML）与养老金因果评估（现代统计模型及应用）</title>\n'
-        f'<style>{SHARED_CSS}</style>\n'
+        '<title>双重机器学习（DML）与高维因果推断：理论、模拟与 401(k) 实证研究</title>\n'
+        f'<style>{V2_CSS}</style>\n'
         '</head>\n'
         '<body>\n'
         '<div id="deck">\n'
@@ -684,30 +1153,30 @@ def main() -> None:
     )
     OUT_HTML.write_text(html_doc, encoding="utf-8")
 
-    # Sync conversational speech script aligned with the 15 slide titles
+    # Sync academic speech script aligned with the 15 slide titles
     slide_titles = [
-        "Slide 1｜封面：双重机器学习（DML）与高维因果推断——Monte Carlo 模拟验证及 401(k) 养老金实证",
-        "Slide 2｜一、研究背景与商业问题：401(k) 究竟带来多少净新增储蓄？",
-        "Slide 3｜二、衔接讲义 1–3：为什么需要超越线性 OLS 与倾向得分匹配？",
-        "Slide 4｜三、模型解构（上）：机器学习的两类偏差与 Neyman 正交化",
-        "Slide 5｜三、模型解构（下）：K-折交叉拟合与 PLR / IRM / IIVM 统一框架",
-        "Slide 6｜四、模拟验证（上）：非线性高维混杂 DGP 与抽样分布对比",
-        "Slide 7｜四、模拟验证（下）：点估计 RMSE 与 95% 置信区间覆盖率检验",
-        "Slide 8｜五、真实数据实证（一）：1991 SIPP 401(k) 分布与混杂偏差诊断",
-        "Slide 9｜五、真实数据实证（二）：传统方法 vs. 四类学习器 DML 森林图",
-        "Slide 10｜六、假设核验与稳健性：倾向得分重叠、无 pira 敏感性与工具变量 LATE",
-        "Slide 11｜七、商业客群洞察：按收入四分位的异质性因果效应（GATE）",
-        "Slide 12｜八、商业应用与公共政策落地建议",
-        "Slide 13｜九、方法边界、局限性与前沿延伸方向",
-        "Slide 14｜十、3 分钟组内个人拓展：把 DML 带回各自的实习与研究领域",
-        "Slide 15｜十一、核心参考文献与 Q&A 交流",
+        "Slide 1｜封面：双重机器学习（DML）与高维因果推断：理论原理、模拟验证与 401(k) 实证研究",
+        "Slide 2｜一、模型背景与文献综述：高维因果推断的演进脉络",
+        "Slide 3｜二、模型原理（一）：部分线性框架与机器学习的两类偏误",
+        "Slide 4｜二、模型原理（二）：Neyman 正交化与误差二阶乘积收敛",
+        "Slide 5｜二、模型原理（三）：K-折交叉拟合与 PLR / IRM / IIVM 统一框架",
+        "Slide 6｜三、模拟分析（一）：非线性高维混杂 DGP 与抽样分布对比",
+        "Slide 7｜三、模拟分析（二）：点估计精度（RMSE）与置信区间覆盖率检验",
+        "Slide 8｜四、实证研究背景与数据诊断：1991 SIPP 401(k) 养老金计划",
+        "Slide 9｜五、实证分析（一）：传统计量基准与多学习器 DML 主效应对比",
+        "Slide 10｜五、实证分析（二）：重叠性检验、协变量敏感性与工具变量 LATE",
+        "Slide 11｜五、实证分析（三）：基于正交伪结果的收入异质性效应（GATE）",
+        "Slide 12｜六、研究结论（一）：DML 模型性能总结与实证决策启示",
+        "Slide 13｜六、研究结论（二）：模型适用边界、局限性与前沿延伸",
+        "Slide 14｜七、模型拓展应用：结合实习与研究领域的 3 分钟个人阐述",
+        "Slide 15｜八、主要参考文献与 Q&A 交流",
     ]
-    timings = ["30秒", "50秒", "45秒", "60秒", "55秒", "50秒", "45秒", "45秒", "60秒", "50秒", "55秒", "45秒", "40秒", "3分钟(每人≤1分)", "Q&A"]
+    timings = ["30秒", "45秒", "55秒", "60秒", "55秒", "50秒", "45秒", "45秒", "60秒", "50秒", "55秒", "50秒", "40秒", "3分钟(每人≤1分)", "Q&A"]
     speech_lines = [
-        "# 《现代统计模型及应用》课堂汇报口播稿（版本二：前沿方法 双重机器学习 DML）",
+        "# 双重机器学习（DML）与高维因果推断汇报口播稿",
         "",
-        "> **汇报节奏**：前 13 页主讲严格控制在 **11 分 30 秒 – 12 分 00 秒**；第 14 页组内 3 人每人 **≤ 1 分钟**拓展；第 15 页留给老师和同学提问。",
-        "> **口吻说明**：面向冯项楠老师、吴尚老师及班上同学，先用直观悖论吸引注意力，再用大白话讲透 Neyman 正交与交叉拟合，最后落回真实数据与诚实边界。",
+        "> **汇报节奏**：前 13 页主讲严格控制在 **11 分 30 秒 – 12 分 00 秒**；第 14 页组内 3 人每人 **≤ 1 分钟**拓展；第 15 页进入 Q&A 交流。",
+        "> **叙事架构**：严格遵循“模型介绍与文献综述 → 模型核心原理 → Monte Carlo 模拟验证 → 实证背景与数据诊断 → 多维度实证分析 → 模型性能总结与边界”。",
         "",
         "---",
         "",
@@ -724,25 +1193,25 @@ def main() -> None:
         "",
         "## 二、第 14 页 3 分钟个人拓展详稿（每人 ≤ 55 秒）",
         "",
-        "- **陈霖（量化多因子与大模型 Agent RL，约 50 秒）**：",
-        "  “结合我在 Trexquant 美股多因子选股以及上海人工智能实验室大模型推理与 Agent RL 的实践，DML 有两处直接用途：第一是在多因子里用 Ridge/XGBoost/LGBM 合成新闻情绪与量价信号时，市值和行业暴露往往和未来收益呈强非线性混杂，用 DML 对新因子和超额收益同时做交叉拟合正交残差，能更纯净地识别真实增量 Alpha；第二是在 Agent RL 离线评估里，利用双稳健正交得分可以在高维上下文状态空间里做无偏反事实回报归因。”",
-        "- **组员 B（互联网营销 Uplift 模板，约 50 秒，请替换为个人真实实习）**：",
-        "  “【请组员 B 替换姓名与行业】：在互联网用户增长和优惠券营销里，发券历史通常偏向本来就高活跃的用户。利用 DML 的 IRM 框架，我们可以放心地用 GBDT 控制数十维用户行为特征，通过正交得分识别出真正对补贴敏感的高增量客群，剔除‘不发券也买’的假增量人群，把营销预算花在刀刃上。”",
-        "- **组员 C（金融科技风控提额模板，约 50 秒，请替换为个人真实实习）**：",
-        "  “【请组员 C 替换姓名与行业】：在金融科技消费信贷场景里，平台本身就是根据复杂征信评分卡决定给谁提额。借用 DML，风控团队既可以保留最擅长的 XGBoost 吸收高维非线性特征，又能得到带严谨 95% 置信区间的提额因果收益与坏账响应评估。”",
+        "- **成员 A｜陈霖（量化多因子与大模型 Agent RL，约 50 秒）**：",
+        "  “结合我在 Trexquant 美股多因子研究与上海人工智能实验室 Agent 强化学习的实践，DML 主要有两方面应用价值：第一，在利用非线性算法合成高频或情绪类因子时，市值、波动率与行业暴露常与预期收益存在复杂非线性混杂，利用 DML 对目标因子与超额收益同步做交叉拟合正交残差，可更准确地评估信号的净增量 Alpha；第二，在 Agent RL 离线评估中，借助双稳健正交得分可在高维状态空间实现无偏反事实回报归因。”",
+        "- **成员 B｜[请填姓名]（互联网用户增长 Uplift 模板，约 50 秒，请替换为个人真实实习）**：",
+        "  “【请成员 B 替换姓名与场景】：在互联网用户增长与优惠券营销中，历史触达策略往往偏向高活跃或高价值用户，直接对比触达与未触达组转化率存在显著选择偏误。采用 DML-IRM 框架，可借助梯度提升树充分控制数十维用户历史行为协变量，通过正交得分识别对激励真正敏感的高增量客群，从而优化补贴投放效率。”",
+        "- **成员 C｜[请填姓名]（金融科技信贷风控模板，约 50 秒，请替换为个人真实实习）**：",
+        "  “【请成员 C 替换姓名与场景】：在消费信贷额度管理中，平台授信本身依赖于多维非线性的信用评分体系。引入 DML 框架后，风控团队既可保留 XGBoost/LightGBM 等高维非线性学习器对征信特征的表征优势，又能够获得具备严格 95% 置信区间的提额因果收益与风险响应评估。”",
         "",
         "---",
         "",
-        "## 三、第 15 页高频 Q&A 备答（供彩排准备）",
+        "## 三、第 15 页核心 Q&A 备答（学术答辩参考）",
         "",
-        "1. **冯项楠老师可能问：DML 和讲义 2 的倾向得分匹配（PSM）相比，最本质的升级在哪？**",
-        "   - **答**：在于正交得分的二阶误差乘积结构。单靠倾向得分的传统方法如果用机器学习拟合，偏差是 $O(n^{-1/4})$，乘上 $\\sqrt{n}$ 会发散；DML 通过把结果预测 $\\hat{g}$ 与倾向得分 $\\hat{m}$ 组合成 Neyman 正交得分，把偏差压成乘积 $n^{-1/4}\\times n^{-1/4}=o(n^{-1/2})$，且不丢弃未匹配样本（把 ATT 标准误从 $3,026 压低到 $1,683）。",
-        "2. **吴尚老师可能问：为什么模拟实验里完整 DML 换了 Poly2+Lasso，而 401(k) 实证里跑了四种？**",
-        "   - **答**：模拟 DGP 构造为 20 维中的二阶多项式交互，目的在于让能达 $o(n^{-1/4})$ 速率的 Poly2+LassoCV 检验理想 DML，同时对照低维线性 OLS、非正交 RF 与无交叉拟合深层 RF 的失效机制；而真实 401(k) 未知真实函数形式，所以我们同时跑了 Lasso、Ridge、RF 与 HGB 四类截然不同的算法，全部分别落在 $7,822–$8,693，证明结论稳健。",
-        "3. **老师可能问：如果雇主是否提供 401(k) 还是和员工未记录的储蓄偏好相关怎么办？**",
-        "   - **答**：这是可观测控制方法的根本边界，我们在第 13 页如实说明了这一点；实践中我们一方面做了剔除争议变量 `pira` 的敏感性检验（结论稳健在 `$8,923`），另一方面也结合讲义 1.2.5 工具变量估计了实际参与的 LATE (`$12,107`)。若要彻底剔除不随时间变的隐含偏好，还需借助面板 DID-DML。",
-        "4. **同学可能问：为什么 Q2 中低收入组 GATE 比 Q1 还低且跨零？**",
-        "   - **答**：一方面 Q2 净金融资产尾部方差较大（SE `$1,462`）；另一方面 Q1 原本中位净资产几乎为零，一旦参与自动配比几乎 100% 是净新增，而 Q2 工薪族在购房首付、子女抚养与消费信贷挤压下，更易出现账户间挪动或储蓄弹性偏弱。",
+        "1. **DML-IRM 与传统倾向得分匹配（PSM）相比，最本质的理论与实践改进是什么？**",
+        "   - **答**：在理论上，传统单方程倾向得分方法若嵌入机器学习估计，会面临 $O(n^{-1/4})$ 量级正则化偏误并导致 $\\sqrt{n}$ 尺度发散；DML-IRM 通过结合结果回归 $\\hat{g}$ 与倾向得分 $\\hat{m}$ 构造双稳健 Neyman 正交得分，将主导误差压低为乘积 $O_p(n^{-1/4}) \\times O_p(n^{-1/4}) = o_p(n^{-1/2})$。在实证精度上，DML-IRM 保留全样本信息而无须丢弃未匹配样本，将 401(k) ATT 标准误从 1:1 PSM 的 $3,026 显著降低至 $1,683。",
+        "2. **为什么在模拟实验中，无交叉拟合的 Orthogonal ML 会出现显著负偏误（1.640）？**",
+        "   - **答**：在该对比设定中，未限制深度的随机森林在全样本上直接拟合结果与处置，导致模型部分记忆了结构误差项 $V_i$ 与 $\\zeta_i$，从而在样本内残差 $\\hat{u}_i$ 与 $\\hat{v}_i$ 之间诱发系统性负向过拟合相关性，破坏正交矩无偏条件。",
+        "3. **为什么模拟实验使用 Poly2 + LassoCV，而 401(k) 实证采用四类学习器？**",
+        "   - **答**：在模拟 DGP 中，真实扰动函数已知为 20 维中的二阶多项式与交互结构，采用与函数族匹配的 Poly2 + LassoCV（收敛速率满足 $o(n^{-1/4})$）可清晰剥离并检验正交化与交叉拟合的独立贡献；而在真实 401(k) 数据中真实函数形式未知，因此并行采用 Lasso、Ridge、随机森林与 HistGradientBoosting 四类差异化算法进行交叉验证，四者均收敛于 $7,822–$8,693，证明结论不依赖特定模型设定。",
+        "4. **如果雇主提供 401(k) 与员工未观测到的主观储蓄偏好相关，如何进一步检验或缓解？**",
+        "   - **答**：条件可忽略性假设无法直接控制未观测变量，这是截面观测因果推断的核心边界。本研究一方面通过剔除与主观意愿相关的争议变量 `pira` 进行敏感性重估（ATE 为 `$8,923`），另一方面以 `e401` 作为 `p401` 的工具变量采用 DML-IIVM 估计依从者效应（LATE 为 `$12,107`）。进一步拓展可结合纵贯面板双重差分（DID-DML）及偏 $R^2$ 混淆强度敏感性边界予以加固。",
     ])
     OUT_SPEECH.write_text("\n".join(speech_lines) + "\n", encoding="utf-8")
     print(f"Built {OUT_HTML.name} and {OUT_SPEECH.name}")

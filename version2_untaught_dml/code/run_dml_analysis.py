@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
-"""Version 2 (Course-Untaught Method): Double/Debiased Machine Learning (DML)
+"""Double/Debiased Machine Learning (DML)
 Based on Chernozhukov et al. (2018), The Econometrics Journal.
 
 Includes:
-  Part A: Monte Carlo Simulation (B=200, n=1000, p=20) proving why Naive OLS,
+  Part A: Monte Carlo Simulation (B=200, n=1000, p=20) demonstrating why Naive OLS,
           Direct Regularized ML Plug-in, and Orthogonal ML without Cross-Fitting fail,
           while full DML (Neyman Orthogonal Score + Cross-Fitting) achieves ~95% CI coverage.
   Part B: Real-world empirical application on 1991 SIPP 401(k) dataset (N=9,915)
-          comparing traditional course baselines (OLS, Polynomial OLS, PSM) against
+          comparing traditional econometric baselines (OLS, Polynomial OLS, PSM) against
           DML-PLR, DML-IRM (ATE & ATT), DML-IIVM (LATE), and GATE heterogeneity.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import time
 from pathlib import Path
@@ -190,7 +191,7 @@ def ols_hc1(X: np.ndarray, y: np.ndarray, col_idx: int = 1) -> Tuple[float, floa
 
 
 def run_psm_baseline(df: pd.DataFrame, covs: List[str], n_boot: int = 120, seed: int = 42) -> Dict[str, Dict[str, float]]:
-    """Course Lecture 2.3 baseline: Logistic Propensity Score + Common Support + 1:1 NN Matching on logit(PS)."""
+    """Traditional econometric baseline: Logistic Propensity Score + Common Support + 1:1 NN Matching on logit(PS)."""
     X = df[covs].values
     D = df["e401"].values
     Y = df["net_tfa"].values
@@ -563,25 +564,30 @@ def plot_fig3_401k_eda(df: pd.DataFrame, covs: List[str]) -> pd.DataFrame:
 
 
 def plot_fig4_forest(forest_df: pd.DataFrame) -> None:
-    fig, ax = plt.subplots(figsize=(11.5, 6.8))
+    fig, ax = plt.subplots(figsize=(11.2, 6.5))
     df_p = forest_df.iloc[::-1].reset_index(drop=True)
     y = np.arange(len(df_p))
 
-    cat_colors = {"传统课堂基准": "#7F7F7F", "DML-PLR": "#2E75B6", "DML-IRM (ATE)": "#1F4E79", "DML-IRM (ATT)": "#548235"}
+    cat_colors = {"传统计量基准": "#7F7F7F", "DML-PLR": "#2E75B6", "DML-IRM (ATE)": "#1F4E79", "DML-IRM (ATT)": "#548235"}
+    plotted_groups = set()
     for idx, row in df_p.iterrows():
-        col = cat_colors.get(row["group"], "#1F4E79")
+        grp = row["group"]
+        col = cat_colors.get(grp, "#1F4E79")
+        lbl = grp if grp not in plotted_groups else None
+        plotted_groups.add(grp)
         ax.errorbar(
             row["est"], idx, xerr=1.96 * row["se"],
-            fmt="o", color=col, ecolor=col, elinewidth=2.2, capsize=4.5, ms=7.0
+            fmt="o", color=col, ecolor=col, elinewidth=2.3, capsize=4.5, ms=7.2, label=lbl
         )
-        ax.text(row["est"] + 1.96 * row["se"] + 350, idx, f"${row['est']:,.0f} (±${1.96*row['se']:,.0f})", va="center", fontsize=8.5)
+        ax.text(row["est"] + 1.96 * row["se"] + 350, idx, f"${row['est']:,.0f} (±${1.96*row['se']:,.0f})", va="center", fontsize=10.0)
 
     ax.axvline(0, color="#111111", ls=":", lw=1.0)
     ax.set_yticks(y)
-    ax.set_yticklabels(df_p["label"], fontsize=9.2)
-    ax.set_xlabel("401(k) 资格对净金融资产的因果效应估计与 95% 置信区间 (美元)", fontsize=10.5)
-    ax.set_xlim(-500, (df_p["est"] + 1.96 * df_p["se"]).max() * 1.25)
-    ax.set_title("图4：传统计量方法 vs. 双重机器学习（DML-PLR / IRM）因果效应横向森林图", fontsize=12.8, fontweight="bold", pad=10)
+    ax.set_yticklabels(df_p["label"], fontsize=10.8)
+    ax.set_xlabel("401(k) 资格对净金融资产的因果效应估计与 95% 置信区间 (美元)", fontsize=11.5)
+    ax.set_xlim(-500, (df_p["est"] + 1.96 * df_p["se"]).max() * 1.27)
+    ax.set_title("图4：传统计量基准与双重机器学习（DML-PLR / IRM）主效应对比森林图", fontsize=13.5, fontweight="bold", pad=10)
+    ax.legend(fontsize=10.0, loc="lower right", frameon=True, framealpha=0.92)
     ax.grid(axis="x", alpha=0.25)
     fig.savefig(FIG_DIR / "fig4_401k_model_comparison_forest.png", bbox_inches="tight")
     plt.close(fig)
@@ -663,7 +669,7 @@ def main() -> None:
     Y = df["net_tfa"].values
     n = len(df)
 
-    # Traditional Baselines (Course Lectures 1-2)
+    # Traditional Econometric Baselines
     naive_est, naive_se = ols_hc1(np.column_stack([np.ones(n), D]), Y)
     ols_est, ols_se = ols_hc1(np.column_stack([np.ones(n), D, X9]), Y)
 
@@ -701,11 +707,11 @@ def main() -> None:
 
     # Forest comparison table
     forest_rows = [
-        {"group": "传统课堂基准", "label": "Naive 组间均值差 (无控制)", "est": naive_est, "se": naive_se},
-        {"group": "传统课堂基准", "label": "线性 OLS (讲义 2.2)", "est": ols_est, "se": ols_se},
-        {"group": "传统课堂基准", "label": "高维二次多项式 OLS", "est": poly_ols_est, "se": poly_ols_se},
-        {"group": "传统课堂基准", "label": "PSM 1:1 倾向得分匹配 ATE (讲义 2.3)", "est": psm_res["ATE"]["est"], "se": psm_res["ATE"]["se"]},
-        {"group": "传统课堂基准", "label": "PSM 1:1 倾向得分匹配 ATT (讲义 2.3)", "est": psm_res["ATT"]["est"], "se": psm_res["ATT"]["se"]},
+        {"group": "传统计量基准", "label": "Naive 组间均值差 (无控制)", "est": naive_est, "se": naive_se},
+        {"group": "传统计量基准", "label": "线性 OLS 回归", "est": ols_est, "se": ols_se},
+        {"group": "传统计量基准", "label": "高维二次多项式 OLS", "est": poly_ols_est, "se": poly_ols_se},
+        {"group": "传统计量基准", "label": "PSM 1:1 倾向得分匹配 (ATE)", "est": psm_res["ATE"]["est"], "se": psm_res["ATE"]["se"]},
+        {"group": "传统计量基准", "label": "PSM 1:1 倾向得分匹配 (ATT)", "est": psm_res["ATT"]["est"], "se": psm_res["ATT"]["se"]},
     ]
     for name, r in plr_results.items():
         forest_rows.append({"group": "DML-PLR", "label": f"DML-PLR ({name})", "est": r["est"], "se": r["se"]})
@@ -782,7 +788,7 @@ def main() -> None:
     with open(OUT_DIR / "results_summary.json", "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
 
-    print("=== Version 2 (DML) Summary ===")
+    print("=== Double/Debiased Machine Learning (DML) Summary ===")
     print("Simulation:")
     print(sim_df.to_string(index=False))
     print("\n401(k) Empirical:")
@@ -792,5 +798,28 @@ def main() -> None:
     print(gate_df[["quartile", "median_inc", "gate", "se", "effect_to_income_pct"]].to_string(index=False))
 
 
+def replot_fig4_only() -> None:
+    """Clean labels in 401k_model_comparison.csv and re-render Figure 4 without re-running full MC/DML."""
+    ensure_dirs()
+    csv_path = TAB_DIR / "401k_model_comparison.csv"
+    forest_df = pd.read_csv(csv_path)
+    label_map = {
+        "线性 OLS (讲义 2.2)": "线性 OLS 回归",
+        "PSM 1:1 倾向得分匹配 ATE (讲义 2.3)": "PSM 1:1 倾向得分匹配 (ATE)",
+        "PSM 1:1 倾向得分匹配 ATT (讲义 2.3)": "PSM 1:1 倾向得分匹配 (ATT)",
+    }
+    forest_df["group"] = forest_df["group"].replace({"传统课堂基准": "传统计量基准"})
+    forest_df["label"] = forest_df["label"].replace(label_map)
+    forest_df.to_csv(csv_path, index=False)
+    plot_fig4_forest(forest_df)
+    print("Updated 401k_model_comparison.csv and replotted fig4_401k_model_comparison_forest.png")
+
+
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Run Double/Debiased Machine Learning analysis or replot Fig 4.")
+    parser.add_argument("--replot-fig4", action="store_true", help="Clean table labels and regenerate Fig 4 only.")
+    args = parser.parse_args()
+    if args.replot_fig4:
+        replot_fig4_only()
+    else:
+        main()
